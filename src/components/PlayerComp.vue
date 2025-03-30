@@ -13,10 +13,6 @@
 </template>
 
 <script setup>
-// import { storeToRefs } from "pinia"
-// import { playersStore } from "@/stores/players"
-
-// const players = playersStore()
 
 import HandComp from "@/components/HandComp.vue"
 import TableComp from "@/components/TableComp.vue"
