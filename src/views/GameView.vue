@@ -53,13 +53,13 @@ gameLogicManager.newGame()
 
 // Computed properties for scores
 const aiScore = computed(() => {
-  players.score()
-  return players.scoreForId(0)
+  // Calculate AI score from table cards
+  return players.tableForId(0).reduce((sum, card) => sum + card.points, 0)
 })
 
 const humanScore = computed(() => {
-  players.score()
-  return players.scoreForId(1)
+  // Calculate human score from table cards
+  return players.tableForId(1).reduce((sum, card) => sum + card.points, 0)
 })
 
 // Deck counter
