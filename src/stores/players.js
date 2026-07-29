@@ -17,6 +17,12 @@ export const playersStore = defineStore("players", {
     }
   },
   actions: {
+    reset() {
+      this.players = {}
+      for (let i = 0; i < K.NUM_PLAYERS; i++) {
+        this.addPlayer(i)
+      }
+    },
     addCardToPlayer(id, card) {
       this.players[id].hand.push(card)
     },
@@ -55,7 +61,10 @@ export const playersStore = defineStore("players", {
       let playedCardIdx = this.players[playerId].table.findIndex(
         ({ id }) => id === card.id
       )
-      this.players[playerId].table[playedCardIdx].points *= 2
+      const currentPoints = this.players[playerId].table[playedCardIdx].points
+      const newPoints = Math.min(currentPoints * 2, 15)
+      this.players[playerId].table[playedCardIdx].points = newPoints
+      this.players[playerId].table[playedCardIdx].fertilized = true
     },
     removeCardFromHand(card, playerId) {
       let playedCardIdx = this.players[playerId].hand.findIndex(

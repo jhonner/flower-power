@@ -86,32 +86,58 @@ class GameLogicManager {
   }
   
   bestStrategy(playerId, availableCards) {
+      const opId = this._otherPlayer(playerId)
+      const opponentScore = this.players.scoreForId(opId)
+      const difficulty = K.DIFFICULTY[K.currentDifficulty]
 
-      // Play highest from hand
+      // DEFENSIVE MODE: Opponent near victory (15+ points) - prioritize disruption
+      if (difficulty.defensivePlay && opponentScore >= 15) {
+        // Prioritize Pest to destroy their high-value cards
+        if (availableCards.some(card => card.type === ACTIONS.PEST) && this._canUsePest(playerId)) {
+          const target = this.bestCardToPest(playerId)
+          if (target && target.points >= 5) {
+            const pestCard = availableCards.find(card => card.type === ACTIONS.PEST)
+            this.playCardForId(pestCard, playerId)
+            this.endPest(target, opId)
+            return true
+          }
+        }
+        // Then Water to steal their cards (lower threshold in defensive mode)
+        if (difficulty.useWater && availableCards.some(card => card.type === ACTIONS.WATER) && this._canUseWater(playerId)) {
+          const target = this.bestCardToSteal(playerId)
+          if (target && target.points >= 3) {
+            const waterCard = availableCards.find(card => card.type === ACTIONS.WATER)
+            this.playCardForId(waterCard, playerId)
+            this.endWater(target, opId)
+            return true
+          }
+        }
+      }
+
+      // OFFENSIVE MODE: Play highest from hand
       const pointCards = availableCards.filter(card => card.points !== undefined)
-      if (pointCards && pointCards.length > 0){
+      if (pointCards && pointCards.length > 0) {
         let highestCard = pointCards.reduce((prev, current) => {
           return (prev && prev.points > current.points) ? prev : current
         })
-        if(this._canPlayCard(highestCard, playerId)) {
+        if (this._canPlayCard(highestCard, playerId)) {
           this.playCardForId(highestCard, playerId)
           return true
         }
       }
-      
-      // Use Pest card to remove key opponent plants.
+
+      // Use Pest card to remove key opponent plants
       if (availableCards.some(card => card.type === ACTIONS.PEST)) {
         if (this._canUsePest(playerId)) {
           const pestCard = availableCards.find(card => card.type === ACTIONS.PEST)
           let bestCardToPest = this.bestCardToPest(playerId)
           this.playCardForId(pestCard, playerId)
-          const opId = this._otherPlayer(playerId)
           this.endPest(bestCardToPest, opId)
           return true
         }
       }
 
-      // Use Fertilize card to double points of highest card on table.
+      // Use Fertilize card to double points of highest card on table
       if (availableCards.some(card => card.type === ACTIONS.FERTILIZE)) {
         if (this._canUseFertilize(playerId)) {
           const fertilizeCard = availableCards.find(card => card.type === ACTIONS.FERTILIZE)
@@ -119,6 +145,35 @@ class GameLogicManager {
           this.playCardForId(fertilizeCard, playerId)
           this.endFertilize(bestCardToFertilize, playerId)
           return true
+        }
+      }
+
+      // Use Water card to steal high-value opponent plants (difficulty-gated)
+      if (difficulty.useWater && availableCards.some(card => card.type === ACTIONS.WATER)) {
+        if (this._canUseWater(playerId)) {
+          const bestStealTarget = this.bestCardToSteal(playerId)
+          if (bestStealTarget && bestStealTarget.points >= 5) {
+            const waterCard = availableCards.find(card => card.type === ACTIONS.WATER)
+            this.playCardForId(waterCard, playerId)
+            this.endWater(bestStealTarget, opId)
+            return true
+          }
+        }
+      }
+
+      // Use Prune to remove low-value cards when table is crowded (difficulty-gated)
+      if (difficulty.usePrune && availableCards.some(card => card.type === ACTIONS.PRUNE)) {
+        if (this._canUsePrune(playerId)) {
+          const myTable = this.players.tableForId(playerId)
+          if (myTable.length >= 4) {
+            const lowestOnTable = this.lowestCardOnTable(playerId)
+            if (lowestOnTable && lowestOnTable.points < 5) {
+              const pruneCard = availableCards.find(card => card.type === ACTIONS.PRUNE)
+              this.playCardForId(pruneCard, playerId)
+              this.endPrune(lowestOnTable, playerId)
+              return true
+            }
+          }
         }
       }
 
@@ -130,9 +185,14 @@ class GameLogicManager {
     return this.highestOpponentsCardOnTable(playerId)
   }
   
-  //find highest card on table for playerId
+  //find highest card on table for playerId (unfertilized only)
   bestCardToFertilize(playerId) {
-    return this.highestCardOnTable(playerId)
+    const table = this.players.tableForId(playerId)
+    const unfertilized = table.filter(card => !card.fertilized)
+    if (unfertilized.length === 0) return null
+    return unfertilized.reduce((prev, current) =>
+      (prev && prev.points > current.points) ? prev : current
+    )
   }
 
   //find highest card on opponent's table
@@ -146,7 +206,26 @@ class GameLogicManager {
     const table = this.players.tableForId(playerId)
     return table.reduce((prev, current) => {
       return (prev && prev.points > current.points) ? prev : current
-    }) 
+    })
+  }
+
+  // Find best card to steal from opponent (highest points)
+  bestCardToSteal(playerId) {
+    const opId = this._otherPlayer(playerId)
+    const opponentTable = this.players.tableForId(opId)
+    if (opponentTable.length === 0) return null
+    return opponentTable.reduce((prev, current) =>
+      (prev && prev.points > current.points) ? prev : current
+    )
+  }
+
+  // Find lowest card on own table (for Prune strategy)
+  lowestCardOnTable(playerId) {
+    const table = this.players.tableForId(playerId)
+    if (table.length === 0) return null
+    return table.reduce((prev, current) =>
+      (prev && prev.points < current.points) ? prev : current
+    )
   }
 
   // find highest card in hand
@@ -360,14 +439,88 @@ class GameLogicManager {
 
   // Helper function to check if Fertilize can be used effectively
   _canUseFertilize(playerId) {
-    return this.players.tableForId(playerId).length > 0
+    const table = this.players.tableForId(playerId)
+    return table.length > 0 && table.some(card => !card.fertilized)
   }
 
   _otherPlayer(playerId) {
     return (playerId + 1) % K.NUM_PLAYERS
   }
 
+  // AI vs AI SIMULATION METHODS
+
+  // Run a single AI vs AI game synchronously (no delays)
+  simulateGame() {
+    this.players.reset()
+    this.deck.create()
+    this.deck.shuffle()
+    this.turn.id = Math.round(Math.random())
+    this.deal()
+
+    let turnCount = 0
+    const maxTurns = 200
+
+    while (!this.isGameOver() && turnCount < maxTurns) {
+      const playerId = this.turn.id
+      const playerHand = this.players.handForId(playerId)
+      const availableCards = playerHand.filter(card => this._canPlayCard(card, playerId))
+
+      let cardPlayed = false
+      if (availableCards.length > 0) {
+        cardPlayed = this.bestStrategy(playerId, availableCards)
+      }
+
+      if (!cardPlayed && this._canDrawCard(playerId)) {
+        this.players.addCardToPlayer(playerId, this.deck.pop())
+      }
+
+      this.turn.id = this._otherPlayer(playerId)
+      turnCount++
+    }
+
+    this.players.score()
+    const score0 = this.players.scoreForId(0)
+    const score1 = this.players.scoreForId(1)
+    return {
+      winner: score0 >= 20 ? 0 : score1 >= 20 ? 1 : -1,
+      scores: [score0, score1],
+      turns: turnCount
+    }
+  }
+
+  // Run multiple simulations and return statistics
+  runSimulation(numGames = 100) {
+    const results = { wins: [0, 0], draws: 0, totalTurns: 0, games: [] }
+
+    for (let i = 0; i < numGames; i++) {
+      const result = this.simulateGame()
+      results.games.push(result)
+      results.totalTurns += result.turns
+
+      if (result.winner === 0) results.wins[0]++
+      else if (result.winner === 1) results.wins[1]++
+      else results.draws++
+    }
+
+    return {
+      player0Wins: results.wins[0],
+      player1Wins: results.wins[1],
+      draws: results.draws,
+      avgTurns: Math.round(results.totalTurns / numGames),
+      winRate: {
+        player0: ((results.wins[0] / numGames) * 100).toFixed(1) + "%",
+        player1: ((results.wins[1] / numGames) * 100).toFixed(1) + "%"
+      }
+    }
+  }
+
 }
 
 // Create and export the singleton instance
 export const gameLogicManager = new GameLogicManager()
+
+// Expose for console testing
+if (typeof window !== "undefined") {
+  window.simGame = () => gameLogicManager.simulateGame()
+  window.runSim = (n = 100) => gameLogicManager.runSimulation(n)
+}
