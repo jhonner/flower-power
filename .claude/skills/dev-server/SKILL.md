@@ -1,6 +1,7 @@
 ---
 name: dev-server
 description: Start or check the Vite development server
+user-invocable: true
 ---
 
 Check if dev server is running, start it if not:

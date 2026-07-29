@@ -1,6 +1,7 @@
 ---
 name: roadmap
 description: Show current project roadmap and pick next task
+user-invocable: true
 ---
 
 Display the project roadmap and suggest next steps:

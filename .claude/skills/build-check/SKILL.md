@@ -1,6 +1,7 @@
 ---
 name: build-check
 description: Run lint and build to verify code quality
+user-invocable: true
 ---
 
 Full build verification:

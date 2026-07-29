@@ -1,6 +1,7 @@
 ---
 name: test-ai
 description: Run AI simulation tests to verify game balance
+user-invocable: true
 ---
 
 Run AI vs AI simulation to test balance:
