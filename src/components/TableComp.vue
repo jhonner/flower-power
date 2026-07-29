@@ -1,7 +1,9 @@
 <template>
   <div class="table">
     <div class="frontTable cardFlex" :class="isSelectable(id)">
-      <CardComp v-for="card in table" :key="card.id" :card="card" :id="id" />
+      <TransitionGroup name="card-table" tag="div" class="card-transition-group">
+        <CardComp v-for="card in table" :key="card.id" :card="card" :id="id" />
+      </TransitionGroup>
     </div>
     <div class="backTable cardFlex">
       <div class="card"></div>

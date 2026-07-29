@@ -117,3 +117,83 @@
 .lisible {
   background-color: black;
 }
+
+/* Card Animation Styles */
+.card-transition-group {
+  display: flex;
+  justify-content: left;
+}
+
+/* Hand animations - cards slide in from deck */
+.card-hand-enter-active {
+  animation: card-draw 0.5s ease-out;
+}
+
+.card-hand-leave-active {
+  animation: card-play 0.4s ease-in;
+}
+
+.card-hand-move {
+  transition: transform 0.3s ease;
+}
+
+/* Table animations - cards appear/disappear */
+.card-table-enter-active {
+  animation: card-play 0.4s ease-out;
+}
+
+.card-table-leave-active {
+  animation: card-destroy 0.5s ease-in;
+}
+
+.card-table-move {
+  transition: transform 0.3s ease;
+}
+
+/* Keyframe animations */
+@keyframes card-draw {
+  from {
+    opacity: 0;
+    transform: translateX(200px) scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes card-play {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0.5;
+    transform: translateY(-20px) scale(0.9);
+  }
+}
+
+@keyframes card-destroy {
+  0% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.2) rotate(5deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0) rotate(10deg);
+  }
+}
+
+/* Card hover effect */
+.card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}

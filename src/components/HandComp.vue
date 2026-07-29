@@ -1,6 +1,8 @@
 <template>
   <div class="hand cardFlex">
-    <CardComp v-for="card in hand" :key="card.id" :card="card" :id="id" />
+    <TransitionGroup name="card-hand" tag="div" class="card-transition-group">
+      <CardComp v-for="card in hand" :key="card.id" :card="card" :id="id" />
+    </TransitionGroup>
   </div>
 </template>
 
