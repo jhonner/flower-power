@@ -34,7 +34,7 @@ export const playersStore = defineStore("players", {
     score() {
       for (let i = 0; i < K.NUM_PLAYERS; i++) {
         this.players[i].score = 0
-        for (let j = 0; j < this.players[i].table.length - 1; j++) {
+        for (let j = 0; j < this.players[i].table.length; j++) {
           this.players[i].score += this.players[i].table[j].points
         }
       }
@@ -46,7 +46,6 @@ export const playersStore = defineStore("players", {
     },
     playCardFromHand(card, playerId) {
       let playedCard = this.removeCardFromHand(card, playerId)
-      console.log("playedCard ", playedCard)
       this.addCardToTable(playedCard, playerId)
     },
     addCardToTable(card, playerId) {

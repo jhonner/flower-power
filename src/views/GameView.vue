@@ -4,7 +4,7 @@
   </nav> -->
   <div class="ground">
     <div class="deck">
-      <div class="discard" @click="discard"></div>
+      <div class="discard"></div>
       <div class="deckCard" @click="draw"></div>
     </div>
     <div>
@@ -24,7 +24,7 @@ let turn = turnStore()
 gameLogicManager.newGame()
 
 function isTurn(id) {
-  if (turn.id == id) {
+  if (turn.id === id) {
     return "turn"
   } else {
     return "notTurn"
@@ -32,7 +32,6 @@ function isTurn(id) {
 }
 
 function draw() {
-  console.log("draw from deck")
   gameLogicManager.drawCard(turn.id)
 }
 </script>

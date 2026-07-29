@@ -16,7 +16,7 @@ const turn = turnStore()
 const players = playersStore()
 
 const isOpponent = computed(() => ({
-  opponent: props.id == "0"
+  opponent: props.id === 0
 }))
 
 function isFromHand() {
@@ -24,10 +24,10 @@ function isFromHand() {
 }
 
 function select() {
-  if (turn.select == props.id) {
+  if (turn.select === props.id) {
     gameLogicManager.handleCardFromTableForId(props.card, turn.select)
   } else {
-    if (turn.select == -1 && turn.id == props.id && isFromHand()) {
+    if (turn.select === -1 && turn.id === props.id && isFromHand()) {
       gameLogicManager.playCardForId(props.card, props.id)
     } else {
       gameLogicManager.discardFromTableForId(props.card, props.id)

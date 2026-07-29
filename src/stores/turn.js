@@ -8,8 +8,7 @@ export const turnStore = defineStore("turn", {
   getters: {},
   actions: {
     random() {
-      this.id = 1 // Math.round(Math.random())
-      console.log("random turn ", this.id)
+      this.id = Math.round(Math.random())
     },
     next() {
       this.id = (this.id + 1) % K.NUM_PLAYERS
