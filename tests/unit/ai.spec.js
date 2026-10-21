@@ -269,4 +269,82 @@ describe('GameLogicManager - AI Strategies & Simulation', () => {
       expect(stats.player0Wins + stats.player1Wins + stats.draws).toBe(100)
     })
   })
+
+  describe('Empty Deck Turn-Passing & Endgame Resolution', () => {
+    it('reproduces Turn 51 log scenario: AI passes turn when hand and deck are empty, allowing Human to play remaining Fertilize and win', () => {
+      deck.idx = []
+      gameLogicManager.consecutivePasses = 0
+
+      // AI (Player 0): Hand empty, Table 5/5 (29 pts)
+      players.addCardToTable({ id: 4, type: 'Rose', points: 2, fertilized: true }, 0)
+      players.addCardToTable({ id: 7, type: 'Sunflower', points: 6, fertilized: true }, 0)
+      players.addCardToTable({ id: 11, type: 'Daisy', points: 10, fertilized: true }, 0)
+      players.addCardToTable({ id: 5, type: 'Sunflower', points: 6, fertilized: true }, 0)
+      players.addCardToTable({ id: 13, type: 'Daisy', points: 5 }, 0)
+
+      // Human (Player 1): Table 5/5 (33 pts), Hand has 3 unplayable flowers + 1 playable Fertilize
+      const lily18 = { id: 18, type: 'Lily', points: 10 }
+      players.addCardToTable({ id: 14, type: 'Daisy', points: 5 }, 1)
+      players.addCardToTable(lily18, 1)
+      players.addCardToTable({ id: 9, type: 'Sunflower', points: 3 }, 1)
+      players.addCardToTable({ id: 19, type: 'Lily', points: 10 }, 1)
+      players.addCardToTable({ id: 10, type: 'Daisy', points: 5 }, 1)
+
+      const fertilize28 = { id: 28, type: 'Fertilize' }
+      players.addCardToPlayer(1, { id: 0, type: 'Rose', points: 1 })
+      players.addCardToPlayer(1, { id: 3, type: 'Rose', points: 1 })
+      players.addCardToPlayer(1, { id: 12, type: 'Daisy', points: 5 })
+      players.addCardToPlayer(1, fertilize28)
+      players.score()
+
+      expect(players.scoreForId(0)).toBe(29)
+      expect(players.scoreForId(1)).toBe(33)
+
+      // Turn 51: AI's turn, game is not over yet because Human can play Fertilize #28
+      turn.id = 0
+      expect(gameLogicManager.isGameOver()).toBe(false)
+
+      // AI cannot play or draw -> automatically passes turn to Human (turn.id becomes 1)
+      gameLogicManager.playAITurn(0)
+      expect(turn.id).toBe(1)
+      expect(gameLogicManager.consecutivePasses).toBe(1)
+
+      // Human plays Fertilize #28 on Lily #18 -> reaches 38 pts and wins
+      gameLogicManager.playCardForId(fertilize28, 1)
+      gameLogicManager.handleCardFromTableForId(lily18, 1)
+      players.score()
+
+      expect(players.scoreForId(1)).toBe(38)
+      expect(gameLogicManager.isGameOver()).toBe(true)
+      expect(gameLogicManager.getWinner()).toBe(1)
+    })
+
+    it('ends the game and awards highest score when deck is empty and neither player can beneficially act', () => {
+      deck.idx = []
+      gameLogicManager.consecutivePasses = 0
+
+      // AI (Player 0): 29 pts on full table, empty hand
+      players.addCardToTable({ id: 1, type: 'Lily', points: 10 }, 0)
+      players.addCardToTable({ id: 2, type: 'Lily', points: 10 }, 0)
+      players.addCardToTable({ id: 3, type: 'Daisy', points: 5 }, 0)
+      players.addCardToTable({ id: 4, type: 'Sunflower', points: 3 }, 0)
+      players.addCardToTable({ id: 5, type: 'Rose', points: 1 }, 0)
+
+      // Human (Player 1): 33 pts on full table (lowest card is 3 pts), 5 Rose cards (1 pt each) in hand
+      players.addCardToTable({ id: 6, type: 'Lily', points: 10 }, 1)
+      players.addCardToTable({ id: 7, type: 'Lily', points: 10 }, 1)
+      players.addCardToTable({ id: 8, type: 'Daisy', points: 5 }, 1)
+      players.addCardToTable({ id: 9, type: 'Daisy', points: 5 }, 1)
+      players.addCardToTable({ id: 10, type: 'Sunflower', points: 3 }, 1)
+      for (let i = 0; i < 5; i++) {
+        players.addCardToPlayer(1, { id: 100 + i, type: 'Rose', points: 1 })
+      }
+      players.score()
+
+      // Even though Human has 5 cards in hand and 5 on table, discarding a 3-pt Sunflower for a 1-pt Rose is not beneficial
+      expect(gameLogicManager.isGameOver()).toBe(true)
+      expect(gameLogicManager.getWinner()).toBe(1)
+    })
+  })
 })
+

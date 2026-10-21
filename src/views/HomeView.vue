@@ -133,6 +133,8 @@ const simTargetGames = ref(100)
 const simResults = ref(null)
 const simError = ref(null)
 
+gameLogicManager.logHistory = []
+
 const difficultyDescription = computed(() => {
   switch (selectedDifficulty.value) {
     case "EASY":

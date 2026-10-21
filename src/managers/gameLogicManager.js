@@ -21,6 +21,7 @@ class GameLogicManager {
     this.turn = null
     this.aiTimeoutId = null
     this.isSimulating = false
+    this.consecutivePasses = 0
     this.logHistory = []
     this.listeners = []
   }
@@ -36,6 +37,33 @@ class GameLogicManager {
     return id === K.AI_PLAYER_ID ? 'AI' : 'You'
   }
 
+  _formatCard(card) {
+    if (!card) return 'None'
+    if (card.points !== undefined) {
+      const fert = card.fertilized ? ', fertilized' : ''
+      return `${card.type} (${card.points} pts${fert}) [#${card.id}]`
+    }
+    return `${card.type} (Action) [#${card.id}]`
+  }
+
+  _formatCardList(cards) {
+    if (!cards || cards.length === 0) return 'Empty'
+    return cards.map(c => this._formatCard(c)).join(', ')
+  }
+
+  _getStateSnapshot() {
+    if (!this.players || !this.players.players || !this.players.players[0] || !this.players.players[1]) {
+      return null
+    }
+    return {
+      deckRemaining: this.deck && this.deck.idx ? this.deck.idx.length : 0,
+      aiHand: this.players.handForId(0).map(c => this._formatCard(c)),
+      aiTable: this.players.tableForId(0).map(c => this._formatCard(c)),
+      humanHand: this.players.handForId(1).map(c => this._formatCard(c)),
+      humanTable: this.players.tableForId(1).map(c => this._formatCard(c))
+    }
+  }
+
   log(message, type = 'info', meta = {}) {
     if (this.isSimulating) return
     const entry = {
@@ -48,6 +76,7 @@ class GameLogicManager {
         ai: this._getScore(0),
         human: this._getScore(1)
       },
+      snapshot: this._getStateSnapshot(),
       ...meta
     }
     this.logHistory.push(entry)
@@ -79,6 +108,7 @@ class GameLogicManager {
       this.aiTimeoutId = null
     }
     this.logHistory = []
+    this.consecutivePasses = 0
     this.currentAction = undefined
     this.pendingActionCard = null
     this.pendingPlayerId = null
@@ -112,12 +142,36 @@ class GameLogicManager {
         this.players.addCardToPlayer(i, this.deck.pop())
       }
     }
-    this.log('Initial hands dealt (5 cards each)', 'info')
+    const aiHandStr = this._formatCardList(this.players.handForId(0))
+    const humanHandStr = this._formatCardList(this.players.handForId(1))
+    this.log(`Initial hands dealt (5 cards each, ${this.deck.idx.length} left in deck)`, 'info')
+    this.log(`AI initial hand: [${aiHandStr}]`, 'info')
+    this.log(`You initial hand: [${humanHandStr}]`, 'info')
   }
 
   _getScore(playerId) {
     if (!this.players || !this.players.players || !this.players.players[playerId]) return 0
     return this.players.tableForId(playerId).reduce((sum, card) => sum + (card.points || 0), 0)
+  }
+
+  _canBenefitFromTableDiscard(playerId) {
+    if (!this._canDiscardFromTable(playerId)) return false
+    if (this.deck && this.deck.idx && this.deck.idx.length > 0) return true
+    const lowestOnTable = this.lowestCardOnTable(playerId)
+    if (!lowestOnTable) return false
+    const hand = this.players.handForId(playerId)
+    const hasBetterFlower = hand.some(c => c.points !== undefined && c.points > lowestOnTable.points)
+    const opBest = this.bestCardToSteal(playerId)
+    const hasBetterSteal = hand.some(c => c.type === ACTIONS.WATER) && opBest && opBest.points > lowestOnTable.points
+    return Boolean(hasBetterFlower || hasBetterSteal)
+  }
+
+  _canPlayerAct(playerId) {
+    if (!this.players || !this.players.players || !this.players.players[playerId]) return false
+    const hasPlayableCard = this.players.handForId(playerId).some(card => this._canPlayCard(card, playerId))
+    const canDraw = this._canDrawCard(playerId)
+    const canDiscard = this._canBenefitFromTableDiscard(playerId)
+    return hasPlayableCard || canDraw || canDiscard
   }
 
   // GAME FLOW METHODS
@@ -128,10 +182,14 @@ class GameLogicManager {
       }
     }
 
+    if (this.consecutivePasses >= K.NUM_PLAYERS) {
+      return true
+    }
+
     if (this.deck && this.deck.idx && this.deck.idx.length === 0) {
-      const p0Moves = this.players.handForId(0).some(card => this._canPlayCard(card, 0))
-      const p1Moves = this.players.handForId(1).some(card => this._canPlayCard(card, 1))
-      if (!p0Moves && !p1Moves) {
+      const p0CanAct = this._canPlayerAct(0)
+      const p1CanAct = this._canPlayerAct(1)
+      if (!p0CanAct && !p1CanAct) {
         return true
       }
     }
@@ -147,7 +205,7 @@ class GameLogicManager {
     if (score0 >= K.WIN_SCORE && score1 >= K.WIN_SCORE) {
       return score0 > score1 ? 0 : score1 > score0 ? 1 : -1
     }
-    if (this.deck && this.deck.idx && this.deck.idx.length === 0) {
+    if (this.isGameOver()) {
       if (score0 > score1) return 0
       if (score1 > score0) return 1
       return -1
@@ -171,8 +229,17 @@ class GameLogicManager {
       return
     }
 
-    if (!this.isSimulating && this.turn.id === K.AI_PLAYER_ID) {
-      this.aiTimeoutId = setTimeout(() => this.doNextTurn(), 600)
+    if (!this.isSimulating) {
+      if (this.turn.id === K.AI_PLAYER_ID) {
+        this.aiTimeoutId = setTimeout(() => this.doNextTurn(), 600)
+      } else if (!this._canPlayerAct(this.turn.id)) {
+        this.aiTimeoutId = setTimeout(() => {
+          if (this.isGameOver()) return
+          this.consecutivePasses++
+          this.log(`${this._getPlayerName(this.turn.id)} have no valid moves — passing turn`, 'info')
+          this.nextTurn()
+        }, 400)
+      }
     }
   }
 
@@ -190,15 +257,29 @@ class GameLogicManager {
     const availableCards = playerHand.filter(card => this._canPlayCard(card, playerId))
     let cardPlayed = false
 
-    if(availableCards.length > 0) {
+    if (availableCards.length > 0) {
       cardPlayed = this.bestStrategy(playerId, availableCards)
     }
 
     // If no offensive or defensive moves, attempt to draw a card
     if (!cardPlayed && this._canDrawCard(playerId)) {
-      this.drawCard(playerId)
+      cardPlayed = this.drawCard(playerId)
     }
 
+    // If hand and table are full, discard lowest table card if hand holds a higher-value flower
+    if (!cardPlayed && this._canBenefitFromTableDiscard(playerId)) {
+      const lowestOnTable = this.lowestCardOnTable(playerId)
+      if (lowestOnTable) {
+        cardPlayed = this.discardFromTableForId(lowestOnTable, playerId)
+      }
+    }
+
+    // If AI cannot play, draw, or profitably discard, pass turn to the other player
+    if (!cardPlayed) {
+      this.consecutivePasses++
+      this.log(`${this._getPlayerName(playerId)} has no valid moves — passing turn`, 'info')
+      this.nextTurn()
+    }
   }
   
   bestStrategy(playerId, availableCards) {
@@ -363,13 +444,29 @@ class GameLogicManager {
   // PLAYER ACTIONS
   drawCard(playerId) {
     if (this._canDrawCard(playerId)) {
+      this.consecutivePasses = 0
       const card = this.deck.pop()
       this.players.addCardToPlayer(playerId, card)
-      this.log(`${this._getPlayerName(playerId)} drew a card (${this.deck.idx.length} left in deck)`, 'draw')
+      this.log(
+        `${this._getPlayerName(playerId)} drew ${this._formatCard(card)} (${this.deck.idx.length} left in deck)`,
+        'draw',
+        { drawnCard: { ...card }, deckRemaining: this.deck.idx.length }
+      )
       this.nextTurn()
       return true
     }
     return false
+  }
+
+  passTurn(playerId) {
+    if (this.turn.id !== playerId || this.isGameOver()) return false
+    if (this.pendingActionCard) {
+      this.cancelCurrentAction(playerId)
+    }
+    this.consecutivePasses++
+    this.log(`${this._getPlayerName(playerId)} passed their turn`, 'info')
+    this.nextTurn()
+    return true
   }
 
   playCardForId(card, playerId) {
@@ -381,9 +478,14 @@ class GameLogicManager {
 
   discardFromTableForId(card, playerId) {
     if (this._canDiscardFromTable(playerId)) {
+      this.consecutivePasses = 0
       this.players.removeCardFromTable(card, playerId)
       this.turn.select = -1
-      this.log(`${this._getPlayerName(playerId)} discarded ${card.type} from table`, 'action')
+      this.log(
+        `${this._getPlayerName(playerId)} discarded ${this._formatCard(card)} from table`,
+        'action',
+        { discardedCard: { ...card } }
+      )
       this.nextTurn()
       return true
     }
@@ -411,12 +513,13 @@ class GameLogicManager {
   cancelCurrentAction(playerId) {
     if (this.pendingActionCard && this.pendingPlayerId === playerId) {
       const actionName = this.currentAction
+      const cardInfo = this._formatCard(this.pendingActionCard)
       this.players.addCardToPlayer(playerId, this.pendingActionCard)
       this.pendingActionCard = null
       this.pendingPlayerId = null
       this.currentAction = undefined
       this.turn.select = -1
-      this.log(`${this._getPlayerName(playerId)} cancelled ${actionName} action`, 'cancel')
+      this.log(`${this._getPlayerName(playerId)} cancelled ${actionName} action (${cardInfo} returned to hand)`, 'cancel')
       return true
     }
     return false
@@ -426,26 +529,27 @@ class GameLogicManager {
     switch (card.type) {
       case ACTIONS.PRUNE:
         this.currentAction = ACTIONS.PRUNE
-        this.log(`${this._getPlayerName(playerId)} initiated Prune action`, 'action')
+        this.log(`${this._getPlayerName(playerId)} initiated Prune [#${card.id}] action`, 'action')
         return this.startPrune(card, playerId)
       case ACTIONS.PEST:
         this.currentAction = ACTIONS.PEST
-        this.log(`${this._getPlayerName(playerId)} initiated Pest action`, 'action')
+        this.log(`${this._getPlayerName(playerId)} initiated Pest [#${card.id}] action`, 'action')
         return this.startPest(card, playerId)
       case ACTIONS.WATER:
         this.currentAction = ACTIONS.WATER
-        this.log(`${this._getPlayerName(playerId)} initiated Water action`, 'action')
+        this.log(`${this._getPlayerName(playerId)} initiated Water [#${card.id}] action`, 'action')
         return this.startWater(card, playerId)
       case ACTIONS.FERTILIZE:
         this.currentAction = ACTIONS.FERTILIZE
-        this.log(`${this._getPlayerName(playerId)} initiated Fertilize action`, 'action')
+        this.log(`${this._getPlayerName(playerId)} initiated Fertilize [#${card.id}] action`, 'action')
         return this.startFertilize(card, playerId)
       default:
         // Add flower to table
         if (this.players.tableForId(playerId).length < 5) {
+          this.consecutivePasses = 0
           this.currentAction = undefined
           this.players.playCardFromHand(card, playerId)
-          this.log(`${this._getPlayerName(playerId)} planted ${card.type} (+${card.points} pts)`, 'play')
+          this.log(`${this._getPlayerName(playerId)} planted ${card.type} (+${card.points} pts) [#${card.id}]`, 'play')
           return true
         }
         return false
@@ -467,12 +571,13 @@ class GameLogicManager {
   }
 
   endPrune(card, playerId) {
+    this.consecutivePasses = 0
     this.pendingActionCard = null
     this.pendingPlayerId = null
     this.currentAction = undefined
     this.players.removeCardFromTable(card, playerId)
     this.turn.select = -1
-    this.log(`${this._getPlayerName(playerId)} pruned ${card.type} (${card.points} pts) from their table`, 'action')
+    this.log(`${this._getPlayerName(playerId)} pruned ${card.type} (${card.points} pts) [#${card.id}] from their table`, 'action')
     this.nextTurn()
   }
 
@@ -493,6 +598,7 @@ class GameLogicManager {
   }
 
   endPest(card, playerId) {
+    this.consecutivePasses = 0
     this.pendingActionCard = null
     this.pendingPlayerId = null
     this.currentAction = undefined
@@ -500,7 +606,7 @@ class GameLogicManager {
     this.turn.select = -1
     const victim = this._getPlayerName(playerId)
     const attacker = this._getPlayerName(this._otherPlayer(playerId))
-    this.log(`${attacker} used Pest to destroy ${card.type} (${card.points} pts) on ${victim}'s table`, 'action')
+    this.log(`${attacker} used Pest to destroy ${card.type} (${card.points} pts) [#${card.id}] on ${victim}'s table`, 'action')
     this.nextTurn()
   }
 
@@ -521,6 +627,7 @@ class GameLogicManager {
   }
 
   endWater(card, playerId) {
+    this.consecutivePasses = 0
     this.pendingActionCard = null
     this.pendingPlayerId = null
     this.currentAction = undefined
@@ -530,7 +637,7 @@ class GameLogicManager {
     this.turn.select = -1
     const victim = this._getPlayerName(playerId)
     const thief = this._getPlayerName(opId)
-    this.log(`${thief} used Water to steal ${stolenCard.type} (${stolenCard.points} pts) from ${victim}`, 'action')
+    this.log(`${thief} used Water to steal ${stolenCard.type} (${stolenCard.points} pts) [#${stolenCard.id}] from ${victim}`, 'action')
     this.nextTurn()
   }
 
@@ -549,13 +656,14 @@ class GameLogicManager {
   }
 
   endFertilize(card, playerId) {
+    this.consecutivePasses = 0
     this.pendingActionCard = null
     this.pendingPlayerId = null
     this.currentAction = undefined
     const oldPoints = card.points
     this.players.doubleCardFromTable(card, playerId)
     this.turn.select = -1
-    this.log(`${this._getPlayerName(playerId)} fertilized ${card.type} (${oldPoints} ➔ ${card.points} pts)`, 'action')
+    this.log(`${this._getPlayerName(playerId)} fertilized ${card.type} [#${card.id}] (${oldPoints} ➔ ${card.points} pts)`, 'action')
     this.nextTurn()
   }
 
@@ -624,6 +732,7 @@ class GameLogicManager {
       if (!this.deck) this.deck = deckStore()
       if (!this.turn) this.turn = turnStore()
 
+      this.consecutivePasses = 0
       this.currentAction = undefined
       this.pendingActionCard = null
       this.pendingPlayerId = null
@@ -651,6 +760,21 @@ class GameLogicManager {
 
         if (!cardPlayed && this._canDrawCard(playerId)) {
           this.players.addCardToPlayer(playerId, this.deck.pop())
+          cardPlayed = true
+        }
+
+        if (!cardPlayed && this._canBenefitFromTableDiscard(playerId)) {
+          const lowestOnTable = this.lowestCardOnTable(playerId)
+          if (lowestOnTable) {
+            this.players.removeCardFromTable(lowestOnTable, playerId)
+            cardPlayed = true
+          }
+        }
+
+        if (cardPlayed) {
+          this.consecutivePasses = 0
+        } else {
+          this.consecutivePasses++
         }
 
         this.turn.id = this._otherPlayer(playerId)
@@ -660,10 +784,13 @@ class GameLogicManager {
       this.players.score()
       const score0 = this.players.scoreForId(0)
       const score1 = this.players.scoreForId(1)
-      const winner = this.getWinner()
+      let winner = this.getWinner()
+      if (winner === null) {
+        winner = score0 > score1 ? 0 : score1 > score0 ? 1 : -1
+      }
 
       return {
-        winner: winner !== null ? winner : -1,
+        winner,
         scores: [score0, score1],
         turns: turnCount
       }
@@ -743,10 +870,87 @@ class GameLogicManager {
     }
   }
 
+  exportGameLogReport() {
+    if (!this.players) this.players = playersStore()
+    if (!this.deck) this.deck = deckStore()
+    if (!this.turn) this.turn = turnStore()
+
+    const lines = []
+    lines.push('===================================================================')
+    lines.push('                   FLOWER POWER — GAME FLOW LOG                    ')
+    lines.push('===================================================================')
+    lines.push(`Exported At:         ${new Date().toISOString()}`)
+    lines.push(`Difficulty:          ${K.currentDifficulty}`)
+    lines.push(`Win Target:          ${K.WIN_SCORE} pts (Defensive Threshold: ${K.DEFENSIVE_THRESHOLD} pts)`)
+    lines.push('')
+
+    const hasPlayers = this.players && this.players.players && this.players.players[0] && this.players.players[1]
+    if (hasPlayers) {
+      const aiHand = this.players.handForId(0)
+      const aiTable = this.players.tableForId(0)
+      const humanHand = this.players.handForId(1)
+      const humanTable = this.players.tableForId(1)
+      const deckRemaining = this.deck && this.deck.idx ? this.deck.idx.length : 0
+      const remainingCards = this.deck && this.deck.idx
+        ? this.deck.idx.map(id => this._formatCard(this.deck.deck[id]))
+        : []
+
+      const aiPlayable = aiHand.filter(c => this._canPlayCard(c, 0))
+      const humanPlayable = humanHand.filter(c => this._canPlayCard(c, 1))
+
+      lines.push('--- CURRENT LIVE BOARD STATE SNAPSHOT ---')
+      lines.push(`Turn Count:          ${this.turn ? this.turn.count : 0}`)
+      lines.push(`Active Turn:         ${this.turn ? this._getPlayerName(this.turn.id) + ' (Player ' + this.turn.id + ')' : 'N/A'}`)
+      lines.push(`Pending Selection:   ${this.turn ? this.turn.select : -1} (Active Action: ${this.currentAction || 'None'})`)
+      lines.push(`Game Over Status:    isGameOver=${this.isGameOver()} | Winner=${this.getWinner()}`)
+      lines.push(`Current Scores:      AI: ${this._getScore(0)} pts | You: ${this._getScore(1)} pts`)
+      lines.push(`Deck Remaining:      ${deckRemaining} cards ${remainingCards.length > 0 ? '[' + remainingCards.join(', ') + ']' : '(Empty)'}`)
+      lines.push('')
+      lines.push('AI (Player 0):')
+      lines.push(`  - Table (${aiTable.length}/5): [${this._formatCardList(aiTable)}]`)
+      lines.push(`  - Hand  (${aiHand.length}/5):  [${this._formatCardList(aiHand)}]`)
+      lines.push(`  - Diagnostics: canDraw=${this._canDrawCard(0)} | canDiscardFromTable=${this._canDiscardFromTable(0)} | playableInHand=${aiPlayable.length} (${this._formatCardList(aiPlayable)})`)
+      lines.push('')
+      lines.push('You (Player 1):')
+      lines.push(`  - Table (${humanTable.length}/5): [${this._formatCardList(humanTable)}]`)
+      lines.push(`  - Hand  (${humanHand.length}/5):  [${this._formatCardList(humanHand)}]`)
+      lines.push(`  - Diagnostics: canDraw=${this._canDrawCard(1)} | canDiscardFromTable=${this._canDiscardFromTable(1)} | playableInHand=${humanPlayable.length} (${this._formatCardList(humanPlayable)})`)
+      lines.push('')
+    }
+
+    lines.push(`--- CHRONOLOGICAL EVENT LOG (${this.logHistory.length} entries) ---`)
+    if (this.logHistory.length === 0) {
+      lines.push('(No log entries recorded)')
+    } else {
+      this.logHistory.forEach((entry, idx) => {
+        const stepNum = String(idx + 1).padStart(3, '0')
+        const turnStr = `T${entry.turnCount ?? 0}`
+        const typeStr = (entry.type || 'info').toUpperCase().padEnd(6, ' ')
+        const scoreStr = `(AI: ${entry.scores?.ai ?? 0}, You: ${entry.scores?.human ?? 0})`
+        lines.push(`[#${stepNum}] [${entry.timestamp}] [${turnStr}] [${typeStr}] ${entry.message} ${scoreStr}`)
+        if (entry.snapshot) {
+          lines.push(`        ↳ State: Deck=${entry.snapshot.deckRemaining} | AI Hand(${entry.snapshot.aiHand.length})=[${entry.snapshot.aiHand.join(', ')}] | AI Table(${entry.snapshot.aiTable.length})=[${entry.snapshot.aiTable.join(', ')}]`)
+          lines.push(`                 You Hand(${entry.snapshot.humanHand.length})=[${entry.snapshot.humanHand.join(', ')}] | You Table(${entry.snapshot.humanTable.length})=[${entry.snapshot.humanTable.join(', ')}]`)
+        }
+      })
+    }
+    lines.push('===================================================================')
+    return lines.join('\n')
+  }
+
 }
+
+// Preserve log history across Vite HMR reloads if a game is currently open
+const previousLogHistory = (typeof window !== "undefined" && typeof window.gameLog === "function")
+  ? window.gameLog()
+  : null
 
 // Create and export the singleton instance
 export const gameLogicManager = new GameLogicManager()
+
+if (Array.isArray(previousLogHistory) && previousLogHistory.length > 0) {
+  gameLogicManager.logHistory = [...previousLogHistory]
+}
 
 // Expose for console testing
 if (typeof window !== "undefined") {
@@ -754,4 +958,5 @@ if (typeof window !== "undefined") {
   window.runSim = (n = 100) => gameLogicManager.runSimulation(n)
   window.runSimAsync = (n = 100) => gameLogicManager.runSimulationAsync(n)
   window.gameLog = () => gameLogicManager.logHistory
+  window.exportGameLog = () => gameLogicManager.exportGameLogReport()
 }

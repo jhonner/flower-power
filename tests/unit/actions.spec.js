@@ -295,4 +295,59 @@ describe('GameLogicManager - Card Actions & Game Rules', () => {
       expect(gameLogicManager.nextTurn).not.toHaveBeenCalled()
     })
   })
+
+  describe('Game Flow Logging & Export', () => {
+    it('logs initial hands for both AI and You on deal()', () => {
+      gameLogicManager.logHistory = []
+      gameLogicManager.deal()
+
+      const messages = gameLogicManager.logHistory.map(e => e.message)
+      expect(messages.some(m => m.includes('Initial hands dealt (5 cards each, 22 left in deck)'))).toBe(true)
+      expect(messages.some(m => m.startsWith('AI initial hand: ['))).toBe(true)
+      expect(messages.some(m => m.startsWith('You initial hand: ['))).toBe(true)
+    })
+
+    it('logs exact card drawn and discarded with card ID and points', () => {
+      gameLogicManager.logHistory = []
+      // Draw a card for Player 1
+      const topCardId = deck.idx[deck.idx.length - 1]
+      const expectedCard = deck.deck[topCardId]
+      gameLogicManager.drawCard(1)
+
+      const drawEntry = gameLogicManager.logHistory.find(e => e.type === 'draw')
+      expect(drawEntry).toBeDefined()
+      expect(drawEntry.message).toContain(`You drew ${expectedCard.type}`)
+      expect(drawEntry.message).toContain(`[#${expectedCard.id}]`)
+      expect(drawEntry.drawnCard).toEqual(expectedCard)
+
+      // Fill hand and table to test discardFromTableForId logging
+      for (let i = 0; i < 5; i++) {
+        players.addCardToPlayer(1, { id: 100 + i, type: 'Rose', points: 1 })
+        players.addCardToTable({ id: 200 + i, type: 'Sunflower', points: 3 }, 1)
+      }
+      const cardToDiscard = players.tableForId(1)[0]
+      gameLogicManager.discardFromTableForId(cardToDiscard, 1)
+
+      const discardEntry = gameLogicManager.logHistory.find(e => e.message.includes('discarded'))
+      expect(discardEntry).toBeDefined()
+      expect(discardEntry.message).toContain('You discarded Sunflower (3 pts) [#200] from table')
+      expect(discardEntry.discardedCard).toEqual(cardToDiscard)
+    })
+
+    it('generates a complete diagnostic report via exportGameLogReport()', () => {
+      gameLogicManager.logHistory = []
+      gameLogicManager.deal()
+      const report = gameLogicManager.exportGameLogReport()
+
+      expect(report).toContain('FLOWER POWER — GAME FLOW LOG')
+      expect(report).toContain('--- CURRENT LIVE BOARD STATE SNAPSHOT ---')
+      expect(report).toContain('AI (Player 0):')
+      expect(report).toContain('You (Player 1):')
+      expect(report).toContain('Diagnostics: canDraw=')
+      expect(report).toContain('--- CHRONOLOGICAL EVENT LOG')
+      expect(report).toContain('AI initial hand:')
+      expect(report).toContain('You initial hand:')
+    })
+  })
 })
+

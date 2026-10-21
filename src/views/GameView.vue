@@ -18,6 +18,14 @@
       <div class="deckCard" @click="draw">
         <span class="deck-count">{{ deckCount }}</span>
       </div>
+      <button
+        v-if="canPassTurn"
+        class="pass-turn-btn"
+        @click="passTurn"
+        title="Pass turn when deck is empty"
+      >
+        Pass Turn ⏭
+      </button>
     </div>
     <div>
       <PlayerComp :class="isTurn(0)" :id="0" />
@@ -27,10 +35,15 @@
     <!-- Game Flow Log Panel -->
     <div class="game-log-panel">
       <div class="game-log-header">
-        <span>📜 Game Flow Log</span>
-        <button class="toggle-log-btn" @click="showLog = !showLog">
-          {{ showLog ? 'Hide' : 'Show' }}
-        </button>
+        <span>📜 Game Flow Log ({{ logEntries.length }})</span>
+        <div class="log-actions">
+          <button class="download-log-btn" @click="downloadLog" title="Download full game log & board state">
+            ⬇ Download Log
+          </button>
+          <button class="toggle-log-btn" @click="showLog = !showLog">
+            {{ showLog ? 'Hide' : 'Show' }}
+          </button>
+        </div>
       </div>
       <div v-if="showLog" class="game-log-entries" ref="logContainer">
         <div v-for="(entry, index) in logEntries" :key="index" :class="['log-entry', `log-${entry.type}`]">
@@ -48,7 +61,10 @@
         <p class="winner" v-if="winner !== 'Nobody (Tie)'">{{ winner }} wins!</p>
         <p class="winner" v-else>It's a Tie!</p>
         <p class="final-score">Final: AI {{ aiScore }} - You {{ humanScore }}</p>
-        <button class="play-again-btn" @click="restartGame">Play Again</button>
+        <div class="modal-actions">
+          <button class="play-again-btn" @click="restartGame">Play Again</button>
+          <button class="download-log-modal-btn" @click="downloadLog">⬇ Download Log</button>
+        </div>
       </div>
     </div>
   </div>
@@ -71,7 +87,23 @@ const winScore = K.WIN_SCORE
 const isGameOver = ref(false)
 const winner = ref("")
 
-gameLogicManager.newGame()
+// Preserve active game if Vite HMR reloads while a match is in progress
+const hasActiveGame =
+  players.players[0] &&
+  players.players[1] &&
+  gameLogicManager.logHistory.length > 0 &&
+  (players.players[0].hand.length > 0 ||
+   players.players[0].table.length > 0 ||
+   players.players[1].hand.length > 0 ||
+   players.players[1].table.length > 0)
+
+if (hasActiveGame) {
+  gameLogicManager.players = players
+  gameLogicManager.deck = deck
+  gameLogicManager.turn = turn
+} else {
+  gameLogicManager.newGame()
+}
 
 // Computed properties for scores
 const aiScore = computed(() => {
@@ -101,9 +133,14 @@ const actionText = computed(() => {
 })
 
 const canCancelAction = computed(() => turn.select !== -1 && turn.id === 1)
+const canPassTurn = computed(() => turn.id === 1 && deckCount.value === 0 && !isGameOver.value)
 
 function cancelAction() {
   gameLogicManager.cancelCurrentAction(1)
+}
+
+function passTurn() {
+  gameLogicManager.passTurn(1)
 }
 
 const showLog = ref(true)
@@ -112,24 +149,7 @@ const logContainer = ref(null)
 
 let unsub = null
 
-onMounted(() => {
-  logEntries.value = [...gameLogicManager.logHistory]
-  unsub = gameLogicManager.onLog((entry) => {
-    logEntries.value.push(entry)
-    nextTick(() => {
-      if (logContainer.value) {
-        logContainer.value.scrollTop = logContainer.value.scrollHeight
-      }
-    })
-  })
-})
-
-onUnmounted(() => {
-  if (unsub) unsub()
-})
-
-// Watch for game over (reaching 20 points or deck depletion stalemate)
-watch([aiScore, humanScore, deckCount], () => {
+function checkGameOverState() {
   if (isGameOver.value) return
   if (gameLogicManager.isGameOver()) {
     const winnerId = gameLogicManager.getWinner()
@@ -142,6 +162,32 @@ watch([aiScore, humanScore, deckCount], () => {
       winner.value = "Nobody (Tie)"
     }
   }
+}
+
+onMounted(() => {
+  logEntries.value = [...gameLogicManager.logHistory]
+  unsub = gameLogicManager.onLog((entry) => {
+    logEntries.value.push(entry)
+    checkGameOverState()
+    nextTick(() => {
+      if (logContainer.value) {
+        logContainer.value.scrollTop = logContainer.value.scrollHeight
+      }
+    })
+  })
+  checkGameOverState()
+  if (hasActiveGame && !isGameOver.value && turn.id === K.AI_PLAYER_ID) {
+    setTimeout(() => gameLogicManager.doNextTurn(), 300)
+  }
+})
+
+onUnmounted(() => {
+  if (unsub) unsub()
+})
+
+// Watch for game over (reaching WIN_SCORE points, turn passes, or deck depletion stalemate)
+watch([aiScore, humanScore, deckCount, () => turn.count, () => turn.id], () => {
+  checkGameOverState()
 })
 
 function isTurn(id) {
@@ -155,6 +201,20 @@ function isTurn(id) {
 function draw() {
   if (turn.id !== 1 || turn.select !== -1) return
   gameLogicManager.drawCard(1)
+}
+
+function downloadLog() {
+  const reportText = gameLogicManager.exportGameLogReport()
+  const blob = new window.Blob([reportText], { type: "text/plain;charset=utf-8" })
+  const url = window.URL.createObjectURL(blob)
+  const link = window.document.createElement("a")
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)
+  link.href = url
+  link.download = `flower-power-log-${timestamp}.txt`
+  window.document.body.appendChild(link)
+  link.click()
+  window.document.body.removeChild(link)
+  window.URL.revokeObjectURL(url)
 }
 
 function restartGame() {
@@ -203,6 +263,24 @@ function restartGame() {
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.8em;
+}
+
+.pass-turn-btn {
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: #e67e22;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 0.82em;
+  width: 100%;
+  transition: background 0.15s;
+}
+
+.pass-turn-btn:hover {
+  background: #d35400;
 }
 
 .action-indicator {
@@ -273,12 +351,19 @@ function restartGame() {
   margin: 10px 0 20px 0;
 }
 
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+}
+
 .play-again-btn {
   background: #3498db;
   color: white;
   border: none;
-  padding: 12px 30px;
-  font-size: 1.1em;
+  padding: 12px 24px;
+  font-size: 1.05em;
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.2s;
@@ -286,6 +371,21 @@ function restartGame() {
 
 .play-again-btn:hover {
   background: #2980b9;
+}
+
+.download-log-modal-btn {
+  background: #2c3e50;
+  color: white;
+  border: none;
+  padding: 12px 20px;
+  font-size: 1.05em;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.download-log-modal-btn:hover {
+  background: #1a252f;
 }
 
 .game-log-panel {
@@ -304,6 +404,28 @@ function restartGame() {
   font-size: 0.9em;
   color: #ddd;
   margin-bottom: 6px;
+}
+
+.log-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.download-log-btn {
+  background: #27ae60;
+  color: white;
+  border: 1px solid #2ecc71;
+  padding: 2px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8em;
+  font-weight: bold;
+  transition: background 0.2s;
+}
+
+.download-log-btn:hover {
+  background: #219a52;
 }
 
 .toggle-log-btn {
