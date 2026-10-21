@@ -75,6 +75,30 @@ describe('Pinia Stores', () => {
       const emptyPop = deck.pop()
       expect(emptyPop).toBeUndefined()
     })
+
+    it('tracks discarded cards in discard pile with topDiscard getter', () => {
+      const deck = deckStore()
+      deck.create()
+      expect(deck.discard).toHaveLength(0)
+      expect(deck.topDiscard).toBeNull()
+      expect(deck.discardCount).toBe(0)
+
+      const card1 = { id: 1, type: 'Rose', points: 1 }
+      const card2 = { id: 25, type: 'Water' }
+
+      deck.discardCard(card1)
+      expect(deck.discardCount).toBe(1)
+      expect(deck.topDiscard).toEqual(card1)
+
+      deck.discardCard(card2)
+      expect(deck.discardCount).toBe(2)
+      expect(deck.topDiscard).toEqual(card2)
+
+      // Re-create resets discard
+      deck.create()
+      expect(deck.discardCount).toBe(0)
+      expect(deck.topDiscard).toBeNull()
+    })
   })
 
   describe('playersStore', () => {

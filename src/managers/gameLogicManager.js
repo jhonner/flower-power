@@ -480,6 +480,9 @@ class GameLogicManager {
     if (this._canDiscardFromTable(playerId)) {
       this.consecutivePasses = 0
       this.players.removeCardFromTable(card, playerId)
+      if (this.deck && this.deck.discardCard) {
+        this.deck.discardCard(card)
+      }
       this.turn.select = -1
       this.log(
         `${this._getPlayerName(playerId)} discarded ${this._formatCard(card)} from table`,
@@ -572,6 +575,10 @@ class GameLogicManager {
 
   endPrune(card, playerId) {
     this.consecutivePasses = 0
+    if (this.deck && this.deck.discardCard) {
+      if (this.pendingActionCard) this.deck.discardCard(this.pendingActionCard)
+      this.deck.discardCard(card)
+    }
     this.pendingActionCard = null
     this.pendingPlayerId = null
     this.currentAction = undefined
@@ -599,6 +606,10 @@ class GameLogicManager {
 
   endPest(card, playerId) {
     this.consecutivePasses = 0
+    if (this.deck && this.deck.discardCard) {
+      if (this.pendingActionCard) this.deck.discardCard(this.pendingActionCard)
+      this.deck.discardCard(card)
+    }
     this.pendingActionCard = null
     this.pendingPlayerId = null
     this.currentAction = undefined
@@ -628,6 +639,9 @@ class GameLogicManager {
 
   endWater(card, playerId) {
     this.consecutivePasses = 0
+    if (this.deck && this.deck.discardCard && this.pendingActionCard) {
+      this.deck.discardCard(this.pendingActionCard)
+    }
     this.pendingActionCard = null
     this.pendingPlayerId = null
     this.currentAction = undefined
@@ -657,6 +671,9 @@ class GameLogicManager {
 
   endFertilize(card, playerId) {
     this.consecutivePasses = 0
+    if (this.deck && this.deck.discardCard && this.pendingActionCard) {
+      this.deck.discardCard(this.pendingActionCard)
+    }
     this.pendingActionCard = null
     this.pendingPlayerId = null
     this.currentAction = undefined

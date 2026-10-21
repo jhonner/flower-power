@@ -3,13 +3,17 @@ import { defineStore } from "pinia"
 
 export const deckStore = defineStore("deck", {
   state: () => {
-    return { deck: {}, idx: [] }
+    return { deck: {}, idx: [], discard: [] }
   },
-  getters: {},
+  getters: {
+    topDiscard: (state) => (state.discard.length > 0 ? state.discard[state.discard.length - 1] : null),
+    discardCount: (state) => state.discard.length
+  },
   actions: {
     create() {
       this.deck = {}
       this.idx = []
+      this.discard = []
       // Create deck
       for (let i = 0; i < K.DECK_SIZE; i++) {
         if (i < 20) {
@@ -39,6 +43,11 @@ export const deckStore = defineStore("deck", {
     },
     pop() {
       return this.deck[this.idx.pop()]
+    },
+    discardCard(card) {
+      if (card) {
+        this.discard.push({ ...card })
+      }
     },
     log() {
       for (let i = 0; i < this.idx.length; i++) {

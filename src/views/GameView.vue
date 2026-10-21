@@ -7,6 +7,14 @@
       <span class="score human-score">You: {{ humanScore }}</span>
     </div>
 
+    <!-- Real-time Activity Toast -->
+    <Transition name="toast-slide">
+      <div v-if="toastVisible" class="activity-toast" :class="`toast-${toastType}`">
+        <span class="toast-dot"></span>
+        <span class="toast-text">{{ toastMessage }}</span>
+      </div>
+    </Transition>
+
     <!-- Action Indicator -->
     <div v-if="actionText" class="action-indicator">
       <span>{{ actionText }}</span>
@@ -14,7 +22,16 @@
     </div>
 
     <div class="deck">
-      <div class="discard"></div>
+      <div class="discard" :class="{ 'has-card': topDiscard }">
+        <template v-if="topDiscard">
+          <CardComp :id="-1" :card="topDiscard" />
+          <span class="discard-badge">{{ discardCount }}</span>
+        </template>
+        <div v-else class="discard-placeholder">
+          <span class="discard-icon">🍂</span>
+          <span class="discard-text">Discard</span>
+        </div>
+      </div>
       <div class="deckCard" @click="draw">
         <span class="deck-count">{{ deckCount }}</span>
       </div>
@@ -78,6 +95,7 @@ import { playersStore } from "@/stores/players"
 import { deckStore } from "@/stores/deck"
 import { gameLogicManager } from "@/managers/gameLogicManager"
 import PlayerComp from "@/components/PlayerComp.vue"
+import CardComp from "@/components/CardComp.vue"
 
 const turn = turnStore()
 const players = playersStore()
@@ -86,6 +104,26 @@ const winScore = K.WIN_SCORE
 
 const isGameOver = ref(false)
 const winner = ref("")
+
+// Discard pile
+const topDiscard = computed(() => deck.topDiscard)
+const discardCount = computed(() => deck.discardCount)
+
+// Real-time activity toast
+const toastMessage = ref("")
+const toastType = ref("info")
+const toastVisible = ref(false)
+let toastTimeout = null
+
+function triggerToast(message, type = "info") {
+  toastMessage.value = message
+  toastType.value = type
+  toastVisible.value = true
+  if (toastTimeout) clearTimeout(toastTimeout)
+  toastTimeout = setTimeout(() => {
+    toastVisible.value = false
+  }, 2600)
+}
 
 // Preserve active game if Vite HMR reloads while a match is in progress
 const hasActiveGame =
@@ -169,6 +207,9 @@ onMounted(() => {
   unsub = gameLogicManager.onLog((entry) => {
     logEntries.value.push(entry)
     checkGameOverState()
+    if (entry.type === "action" || entry.type === "play" || entry.type === "win" || entry.message.includes("passing turn")) {
+      triggerToast(entry.message, entry.type)
+    }
     nextTick(() => {
       if (logContainer.value) {
         logContainer.value.scrollTop = logContainer.value.scrollHeight
@@ -183,6 +224,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   if (unsub) unsub()
+  if (toastTimeout) clearTimeout(toastTimeout)
 })
 
 // Watch for game over (reaching WIN_SCORE points, turn passes, or deck depletion stalemate)
@@ -263,6 +305,125 @@ function restartGame() {
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.8em;
+}
+
+/* Activity Toast */
+.activity-toast {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
+  margin: 0 auto 8px auto;
+  padding: 6px 14px;
+  border-radius: 18px;
+  font-size: 0.85em;
+  font-weight: 600;
+  max-width: 480px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.toast-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f1c40f;
+  flex-shrink: 0;
+}
+
+.toast-play {
+  background: rgba(39, 174, 96, 0.92);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+.toast-play .toast-dot {
+  background: #2ecc71;
+}
+
+.toast-action {
+  background: rgba(41, 128, 185, 0.92);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+.toast-action .toast-dot {
+  background: #f39c12;
+}
+
+.toast-info {
+  background: rgba(52, 73, 94, 0.92);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.toast-win {
+  background: rgba(241, 196, 15, 0.95);
+  color: #2c3e50;
+  font-weight: 700;
+}
+
+.toast-slide-enter-active,
+.toast-slide-leave-active {
+  transition: all 0.25s ease;
+}
+
+.toast-slide-enter-from {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.toast-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+/* Discard Pile */
+.discard {
+  position: relative;
+  width: 100px;
+  height: 140px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.discard.has-card {
+  border: none;
+}
+
+.discard:not(.has-card) {
+  border: 2px dashed rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.discard-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.78em;
+  user-select: none;
+}
+
+.discard-icon {
+  font-size: 1.8em;
+}
+
+.discard-badge {
+  position: absolute;
+  bottom: 5px;
+  left: 5px;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.75em;
+  font-weight: 700;
+  z-index: 6;
 }
 
 .pass-turn-btn {
