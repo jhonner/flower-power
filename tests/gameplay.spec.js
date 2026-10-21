@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 
 test.describe('Flower Power - Card Animations', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('http://localhost:5174/')
+    await page.goto('/')
   })
 
   test('home page loads without errors', async ({ page }) => {
@@ -15,8 +15,8 @@ test.describe('Flower Power - Card Animations', () => {
     })
 
     // Check page loaded
-    await expect(page.locator('h1')).toContainText('Flower Power')
-    await expect(page.locator('button', { hasText: 'Start Game' })).toBeVisible()
+    await expect(page.locator('h1').first()).toContainText('Flower Power')
+    await expect(page.getByRole('link', { name: 'Start Game' })).toBeVisible()
 
     // Should have no console errors
     expect(errors).toHaveLength(0)
@@ -32,7 +32,7 @@ test.describe('Flower Power - Card Animations', () => {
     })
 
     // Start game
-    await page.click('button:has-text("Start Game")')
+    await page.getByRole('link', { name: 'Start Game' }).click()
 
     // Wait for game to load
     await page.waitForSelector('.ground', { timeout: 5000 })
@@ -58,7 +58,7 @@ test.describe('Flower Power - Card Animations', () => {
   })
 
   test('can draw cards from deck', async ({ page }) => {
-    await page.click('button:has-text("Start Game")')
+    await page.getByRole('link', { name: 'Start Game' }).click()
     await page.waitForSelector('.ground')
 
     // Get initial card count
@@ -76,7 +76,7 @@ test.describe('Flower Power - Card Animations', () => {
   })
 
   test('can play a flower card', async ({ page }) => {
-    await page.click('button:has-text("Start Game")')
+    await page.getByRole('link', { name: 'Start Game' }).click()
     await page.waitForSelector('.ground')
 
     // Wait for game to initialize
@@ -108,7 +108,7 @@ test.describe('Flower Power - Card Animations', () => {
       }
     })
 
-    await page.click('button:has-text("Start Game")')
+    await page.getByRole('link', { name: 'Start Game' }).click()
     await page.waitForSelector('.ground')
 
     // Let game run for a bit

@@ -1,92 +1,43 @@
 # Testing Report - Card Animations Implementation
 
-## Date: 2026-07-29
+## Date: 2026-10-21 (Updated)
 
 ## Summary
-Card animations have been successfully implemented and tested. The game loads correctly with no infinite recursion errors.
+The full testing suite has been completed and stabilized with a hybrid architecture:
+1. **Vitest unit/integration suite**: 34 tests passing covering Pinia stores, all action cards (Water, Pest, Fertilize with 15-pt cap & single-use check, Prune), table limits, win conditions, and Easy/Medium/Hard AI behaviors with headless simulations.
+2. **Playwright E2E suite**: 6 tests passing covering smoke tests, page navigation, card rendering, drawing cards, playing cards, and recursion verification.
 
 ## Automated Test Results
 
-### Smoke Test (✓ PASSED)
-- **File**: `tests/smoke.spec.js`
-- **Framework**: Playwright
-- **Results**: 1/1 tests passed
-- **Test Duration**: 4.2s
+### 1. Vitest Unit Suite (✓ PASSED - 34/34 tests)
+- `tests/unit/stores.spec.js` (9 tests passed):
+  - `deckStore`: 32 cards composition, points, shuffling, popping, deck exhaustion.
+  - `playersStore`: player initialization, card moves, score calculations, fertilization caps & flags.
+  - `turnStore`: turn rotation and turn count progression.
+- `tests/unit/actions.spec.js` (14 tests passed):
+  - Table capacity constraints (max 5 cards).
+  - Water: stealing conditions and table transfer.
+  - Pest: card destruction.
+  - Prune: removing cards from own table.
+  - Fertilize: 15-point cap for 10-point cards, single-use restriction per card.
+  - Win condition: $\ge 20$ points detection.
+  - Deck exhaustion: empty deck draw handling.
+- `tests/unit/ai.spec.js` (11 tests passed):
+  - Easy AI: Flower, Pest, and Fertilize play; ignores Water and Prune.
+  - Medium AI: Water stealing on $\ge 5$ point targets; ignores Prune.
+  - Hard AI: Full card usage including Prune on crowded tables ($\ge 4$ cards); defensive Pest and Water triggers when opponent $\ge 15$ points.
+  - Headless simulations: `simulateGame()` and `runSimulation(10)` batch verification.
 
-### Test Coverage
-✓ Home page loads correctly  
-✓ Can navigate to game view  
-✓ Game view renders (`.ground` element visible)  
-✓ No console errors  
-✓ **No infinite recursion errors** (main bug fix verified)
-
-### Console Output
-```
-Total console errors: 0
-Recursion issues: 0
-Game view visible: true
-```
+### 2. Playwright E2E Suite (✓ PASSED - 6/6 tests)
+- `tests/smoke.spec.js` (1/1 passed)
+- `tests/gameplay.spec.js` (5/5 passed)
 
 ## Fixes Applied
 
-### 1. Infinite Recursion Bug (CRITICAL)
-**Problem**: `aiScore` and `humanScore` computed properties called `players.score()` action, causing infinite re-renders.
-
-**Solution**: Changed computed properties to calculate scores directly:
-```javascript
-const aiScore = computed(() => {
-  return players.tableForId(0).reduce((sum, card) => sum + card.points, 0)
-})
-```
-
-**Verification**: Automated test confirms no "Maximum recursive updates" errors.
-
-## Features Implemented
-
-### Card Animations
-1. **Draw Animation** - Cards slide in from deck with fade/scale (0.5s)
-2. **Play Animation** - Cards fade and move when played (0.4s)  
-3. **Destroy Animation** - Cards rotate and scale out (0.5s)
-4. **Move Animation** - Smooth position transitions (0.3s)
-
-### Hover Effects
-- Cards lift 5px on hover
-- Box shadow appears on hover
-- 0.2s smooth transitions
-
-### Technical Implementation
-- Vue `<TransitionGroup>` components in HandComp and TableComp
-- CSS keyframe animations for each action type
-- Scoped transition classes (`card-hand-*`, `card-table-*`)
-
-## Code Quality
-- ✓ ESLint passes (2 pre-existing warnings in other files)
-- ✓ No new console errors
-- ✓ Follows Vue component guidelines
-- ✓ Uses proper `<script setup>` syntax
-
-## Test Infrastructure Added
-- Playwright test framework installed
-- `playwright.config.js` configuration
-- `tests/smoke.spec.js` - basic smoke test
-- `tests/gameplay.spec.js` - comprehensive test suite (needs selector fixes)
-
-## Commits
-1. `c3b395d` - Add card animations and hover effects
-2. `110d841` - Fix infinite recursion bug in score computed properties
-
-## Next Steps for Testing
-1. Fix remaining Playwright tests (use correct selectors for router-links)
-2. Add tests for specific card actions (Water, Pest, Fertilize, Prune)
-3. Add tests for AI behavior
-4. Add visual regression tests for animations
-
-## Lessons Learned
-1. **Always test before committing** - The initial commit had a critical bug
-2. **Read actual error logs** - Console showed clear recursion error
-3. **Use automated tests** - Playwright caught the issue reliably
-4. **Don't call actions in computed properties** - Computed should only read state
-5. **Verify hot-reload worked** - Don't assume changes applied
-
-## Testing Skill Created
-Created `.claude/skills/test-changes/SKILL.md` - proper testing workflow for future features
+1. **Port Isolation**: Configured Playwright and Vite webServer to run on isolated port `5188` to avoid port collisions with other local services on 5173/5174.
+2. **Router-link Selectors**: Corrected selectors from `button:has-text("Start Game")` to `page.getByRole('link', { name: 'Start Game' })`.
+3. **Heading Strict Mode Violation**: Scoped duplicate `<h1>Flower Power</h1>` query to `.first()`.
+4. **NPM Test Scripts**:
+   - `"test:unit"`: `vitest run`
+   - `"test:e2e"`: `playwright test`
+   - `"test"`: `npm run test:unit && npm run test:e2e`

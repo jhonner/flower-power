@@ -19,7 +19,7 @@ test.describe('Flower Power - Basic Smoke Test', () => {
     })
 
     // Go to home page
-    await page.goto('http://localhost:5174/')
+    await page.goto('/')
     console.log('Loaded home page')
 
     // Wait a moment

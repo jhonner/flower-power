@@ -8,7 +8,10 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint src",
-    "lint:fix": "eslint src --fix"
+    "lint:fix": "eslint src --fix",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "test": "npm run test:unit && npm run test:e2e"
   },
   "dependencies": {
     "bootstrap": "^5.3.3",
@@ -22,6 +25,7 @@
     "@vitejs/plugin-vue": "^5.2.1",
     "eslint": "^9.22.0",
     "eslint-plugin-vue": "^10.0.0",
-    "vite": "^6.2.0"
+    "vite": "^6.2.0",
+    "vitest": "^5.0.5"
   }
 }
