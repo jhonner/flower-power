@@ -124,66 +124,162 @@
   justify-content: left;
 }
 
-/* Hand animations - cards slide in from deck */
-.card-hand-enter-active {
-  animation: card-draw 0.5s ease-out;
+/* Human Hand Transitions (Hand at bottom, Deck at right-center) */
+.card-human-hand-enter-active {
+  animation: draw-to-human-hand 0.45s cubic-bezier(0.16, 1, 0.3, 1);
 }
-
-.card-hand-leave-active {
-  animation: card-play 0.4s ease-in;
+.card-human-hand-leave-active {
+  animation: play-from-human-hand 0.35s ease-in;
 }
-
-.card-hand-move {
+.card-human-hand-move {
   transition: transform 0.3s ease;
 }
 
-/* Table animations - cards appear/disappear */
+/* AI Hand Transitions (Hand at top, Deck at right-center) */
+.card-ai-hand-enter-active {
+  animation: draw-to-ai-hand 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-ai-hand-leave-active {
+  animation: play-from-ai-hand 0.35s ease-in;
+}
+.card-ai-hand-move {
+  transition: transform 0.3s ease;
+}
+
+/* Human Table Transitions (Enters from hand below, Exits to discard right) */
+.card-human-table-enter-active {
+  animation: plant-to-human-table 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.25);
+}
+.card-human-table-leave-active {
+  animation: discard-from-human-table 0.4s cubic-bezier(0.4, 0, 0.9, 1);
+}
+.card-human-table-move {
+  transition: transform 0.3s ease;
+}
+
+/* AI Table Transitions (Enters from hand above, Exits to discard right) */
+.card-ai-table-enter-active {
+  animation: plant-to-ai-table 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.25);
+}
+.card-ai-table-leave-active {
+  animation: discard-from-ai-table 0.4s cubic-bezier(0.4, 0, 0.9, 1);
+}
+.card-ai-table-move {
+  transition: transform 0.3s ease;
+}
+
+/* Generic Fallbacks */
+.card-hand-enter-active {
+  animation: draw-to-human-hand 0.45s ease-out;
+}
+.card-hand-leave-active {
+  animation: play-from-human-hand 0.35s ease-in;
+}
+.card-hand-move {
+  transition: transform 0.3s ease;
+}
 .card-table-enter-active {
-  animation: card-play 0.4s ease-out;
+  animation: plant-to-human-table 0.4s ease-out;
 }
-
 .card-table-leave-active {
-  animation: card-destroy 0.5s ease-in;
+  animation: discard-from-human-table 0.4s ease-in;
 }
-
 .card-table-move {
   transition: transform 0.3s ease;
 }
 
-/* Keyframe animations */
-@keyframes card-draw {
-  from {
+/* Keyframe Animations */
+@keyframes draw-to-human-hand {
+  0% {
     opacity: 0;
-    transform: translateX(200px) scale(0.5);
+    transform: translate(170px, -70px) scale(0.55) rotate(10deg);
   }
-  to {
+  100% {
     opacity: 1;
-    transform: translateX(0) scale(1);
+    transform: translate(0, 0) scale(1) rotate(0deg);
   }
 }
 
-@keyframes card-play {
-  from {
+@keyframes draw-to-ai-hand {
+  0% {
+    opacity: 0;
+    transform: translate(170px, 70px) scale(0.55) rotate(-10deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes play-from-human-hand {
+  0% {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
-  to {
-    opacity: 0.5;
-    transform: translateY(-20px) scale(0.9);
+  100% {
+    opacity: 0;
+    transform: translateY(-40px) scale(0.9);
   }
 }
 
-@keyframes card-destroy {
+@keyframes play-from-ai-hand {
   0% {
     opacity: 1;
-    transform: scale(1) rotate(0deg);
-  }
-  50% {
-    transform: scale(1.2) rotate(5deg);
+    transform: translateY(0) scale(1);
   }
   100% {
     opacity: 0;
-    transform: scale(0) rotate(10deg);
+    transform: translateY(40px) scale(0.9);
+  }
+}
+
+@keyframes plant-to-human-table {
+  0% {
+    opacity: 0;
+    transform: translateY(35px) scale(0.85);
+  }
+  75% {
+    transform: translateY(-3px) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes plant-to-ai-table {
+  0% {
+    opacity: 0;
+    transform: translateY(-35px) scale(0.85);
+  }
+  75% {
+    transform: translateY(3px) scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes discard-from-human-table {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(160px, -35px) scale(0.6) rotate(12deg);
+  }
+}
+
+@keyframes discard-from-ai-table {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(160px, 35px) scale(0.6) rotate(-12deg);
   }
 }
 

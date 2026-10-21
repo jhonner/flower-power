@@ -15,11 +15,26 @@
       </div>
     </Transition>
 
-    <!-- Action Indicator -->
-    <div v-if="actionText" class="action-indicator">
-      <span>{{ actionText }}</span>
-      <button v-if="canCancelAction" class="cancel-action-btn" @click="cancelAction">Cancel</button>
-    </div>
+    <!-- Action Casting Arena / Floating Indicator -->
+    <Transition name="cast-pop">
+      <div v-if="pendingActionCard" class="action-cast-arena">
+        <div class="cast-card-box">
+          <CardComp :id="-1" :card="pendingActionCard" />
+        </div>
+        <div class="cast-details">
+          <div class="cast-header">
+            <span class="cast-caster-tag" :class="pendingPlayerId === 0 ? 'tag-ai' : 'tag-you'">
+              {{ pendingPlayerId === 0 ? 'AI is casting' : 'You are casting' }}
+            </span>
+            <span class="cast-card-name">{{ pendingActionCard.type }}</span>
+          </div>
+          <p class="cast-prompt">{{ actionText }}</p>
+          <button v-if="canCancelAction" class="cancel-action-btn" @click="cancelAction">
+            Cancel Action ✕
+          </button>
+        </div>
+      </div>
+    </Transition>
 
     <div class="deck">
       <div class="discard" :class="{ 'has-card': topDiscard }">
@@ -170,6 +185,8 @@ const actionText = computed(() => {
   }
 })
 
+const pendingActionCard = computed(() => gameLogicManager.pendingActionCard)
+const pendingPlayerId = computed(() => gameLogicManager.pendingPlayerId)
 const canCancelAction = computed(() => turn.select !== -1 && turn.id === 1)
 const canPassTurn = computed(() => turn.id === 1 && deckCount.value === 0 && !isGameOver.value)
 
@@ -444,34 +461,109 @@ function restartGame() {
   background: #d35400;
 }
 
-.action-indicator {
+/* Action Cast Arena */
+.action-cast-arena {
   display: flex;
-  justify-content: center;
   align-items: center;
-  gap: 12px;
-  text-align: center;
-  padding: 8px;
-  background: #f39c12;
+  justify-content: center;
+  gap: 16px;
+  background: rgba(18, 22, 28, 0.95);
+  border: 2px solid #f39c12;
+  box-shadow: 0 0 20px rgba(243, 156, 18, 0.35), 0 8px 24px rgba(0, 0, 0, 0.5);
+  border-radius: 14px;
+  padding: 10px 20px;
+  margin: 0 auto 12px auto;
+  max-width: 520px;
+}
+
+.cast-card-box {
+  transform: scale(0.85);
+  transform-origin: center;
+  margin: -10px 0;
+  animation: float-glow 2s infinite alternate ease-in-out;
+}
+
+@keyframes float-glow {
+  0% {
+    transform: scale(0.85) translateY(0);
+    filter: drop-shadow(0 0 8px rgba(243, 156, 18, 0.4));
+  }
+  100% {
+    transform: scale(0.85) translateY(-4px);
+    filter: drop-shadow(0 0 16px rgba(243, 156, 18, 0.8));
+  }
+}
+
+.cast-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
+.cast-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cast-caster-tag {
+  font-size: 0.72em;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tag-you {
+  background: #27ae60;
   color: white;
-  font-weight: bold;
-  margin-bottom: 10px;
-  border-radius: 6px;
+}
+
+.tag-ai {
+  background: #e74c3c;
+  color: white;
+}
+
+.cast-card-name {
+  font-size: 1.1em;
+  font-weight: 800;
+  color: #f1c40f;
+}
+
+.cast-prompt {
+  font-size: 0.88em;
+  color: #ecf0f1;
+  margin: 2px 0 6px 0;
 }
 
 .cancel-action-btn {
   background: #c0392b;
   color: white;
   border: none;
-  padding: 3px 10px;
-  border-radius: 4px;
+  padding: 4px 12px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 0.85em;
+  font-size: 0.8em;
   font-weight: bold;
-  transition: background 0.2s;
+  align-self: flex-start;
+  transition: background 0.15s;
 }
 
 .cancel-action-btn:hover {
   background: #e74c3c;
+}
+
+.cast-pop-enter-active,
+.cast-pop-leave-active {
+  transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.25);
+}
+
+.cast-pop-enter-from,
+.cast-pop-leave-to {
+  opacity: 0;
+  transform: scale(0.88) translateY(-10px);
 }
 
 .game-over-overlay {

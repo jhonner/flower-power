@@ -1,7 +1,7 @@
 <template>
   <div
     class="card"
-    :class="[cardThemeClass, isOpponent, { 'target-eligible': isTargetEligible }]"
+    :class="[cardThemeClass, isOpponent, { 'target-eligible': isTargetEligible }, cardEffectClass]"
     @click="select"
   >
     <template v-if="!isFaceDown">
@@ -88,6 +88,11 @@ const isTargetEligible = computed(() => {
     return !props.card?.fertilized
   }
   return true
+})
+
+const cardEffectClass = computed(() => {
+  if (!props.card?._highlightEffect) return ""
+  return `fx-${props.card._highlightEffect}`
 })
 
 function select() {
@@ -217,6 +222,13 @@ function select() {
   border: 1px solid #fff;
   z-index: 5;
   letter-spacing: 0.4px;
+  animation: seal-pop 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.25);
+}
+
+@keyframes seal-pop {
+  0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+  80% { transform: scale(1.2) rotate(5deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
 }
 
 /* Theme Gradients & Accents */
@@ -322,5 +334,51 @@ function select() {
   100% {
     box-shadow: 0 0 14px #2ecc71, 0 0 4px #a8e6cf;
   }
+}
+
+/* Signature Action Effect Animations */
+.fx-fertilized {
+  animation: bloom-burst 0.7s cubic-bezier(0.18, 0.89, 0.32, 1.25) forwards;
+  box-shadow: 0 0 16px #f1c40f, inset 0 0 10px #2ecc71 !important;
+}
+
+.fx-stolen {
+  animation: water-glide 0.75s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  box-shadow: 0 0 16px #0984e3, inset 0 0 10px #74b9ff !important;
+}
+
+.fx-pested {
+  animation: pest-shake 0.6s ease-in-out forwards;
+  filter: sepia(0.6) hue-rotate(-20deg);
+}
+
+.fx-pruned {
+  animation: prune-snip 0.5s ease-in forwards;
+}
+
+@keyframes bloom-burst {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); filter: brightness(1.25); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+@keyframes water-glide {
+  0% { transform: scale(1.1) translateY(-6px); }
+  50% { transform: scale(1.05) translateY(-3px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+@keyframes pest-shake {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  20% { transform: translateX(-4px) rotate(-3deg); }
+  40% { transform: translateX(4px) rotate(3deg); }
+  60% { transform: translateX(-3px) rotate(-2deg); }
+  80% { transform: translateX(3px) rotate(2deg); }
+}
+
+@keyframes prune-snip {
+  0% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(0.9) rotate(-6deg); }
+  100% { transform: scale(1) rotate(0deg); }
 }
 </style>
