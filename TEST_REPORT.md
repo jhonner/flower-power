@@ -20,7 +20,7 @@ The full testing suite has been completed and stabilized with a hybrid architect
   - Pest: card destruction.
   - Prune: removing cards from own table.
   - Fertilize: 15-point cap for 10-point cards, single-use restriction per card.
-  - Win condition: $\ge 20$ points detection.
+  - Win condition: $\ge 40$ points detection.
   - Deck exhaustion: empty deck draw handling.
 - `tests/unit/ai.spec.js` (11 tests passed):
   - Easy AI: Flower, Pest, and Fertilize play; ignores Water and Prune.

@@ -1,7 +1,7 @@
 # Flower Power — Project Roadmap & Gameplay Evolution Memory
 
 ## Project Context
-Flower Power is a strategic card game built with Vue 3 (Composition API), Pinia, Vite, and Playwright/Vitest. Players build a garden on their table competing to reach 30 points first against an AI opponent.
+Flower Power is a strategic card game built with Vue 3 (Composition API), Pinia, Vite, and Playwright/Vitest. Players build a garden on their table competing to reach 40 points first against an AI opponent.
 
 ## Current Baseline Status (as of October 2026)
 - **Phase 1 (Bug & Core Loop Fixes):** COMPLETED & VERIFIED.
@@ -28,7 +28,7 @@ Resolve structural bugs and mechanical gaps that cause confusion, soft-locks, or
 2. **Fix AI Defensive Mode Score Detection:** Keep `players.scoreForId()` updated during live gameplay so Hard AI accurately detects when human score reaches $\ge 15$ points.
 3. **Fix 50% First-Turn Freeze:** Ensure `doNextTurn()` is invoked if `turn.random()` selects Player 0 (AI) as the first player upon game start.
 4. **Action Cancellation ("Undo Selection"):** Allow players to cancel an active Action card (`Water`, `Pest`, `Prune`, `Fertilize`) before selecting a target, returning the card to hand.
-5. **Deck Depletion / Stalemate Resolution:** Detect when the deck is empty and neither player can reach 20 points, awarding the win to the player with the highest current table score or declaring a draw.
+5. **Deck Depletion / Stalemate Resolution:** Detect when the deck is empty and neither player can reach 40 points, awarding the win to the player with the highest current table score or declaring a draw.
 
 ### Phase 2: Visual Card Redesign & Turn Feedback
 Elevate visual charm, tactical readability, and AI transparency:
@@ -91,9 +91,9 @@ Transform simple numerical racing into layered strategic garden building:
 - **Fix:** In `handleCardFromTableForId` / `endFertilize`, verify `!card.fertilized`. If already fertilized, ignore click or notify player.
 
 ### 6. Stalemate / Deck Exhaustion Resolution
-- **Issue:** When `deck.idx.length === 0` and neither player has reached 20 points, if neither player can make a scoring move, the game enters a dead state.
+- **Issue:** When `deck.idx.length === 0` and neither player has reached 40 points, if neither player can make a scoring move, the game enters a dead state.
 - **Fix:** In `isGameOver()`, check:
-  - Either player has $\ge 20$ points $\rightarrow$ Win.
+  - Either player has $\ge 40$ points $\rightarrow$ Win.
   - Deck is empty AND neither player can play or draw $\rightarrow$ Highest score on table wins (or Tie).
   - Update `GameView.vue` game over modal to display "Deck Depleted - Highest Score Wins" or "Draw".
 

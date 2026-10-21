@@ -199,14 +199,14 @@ describe('GameLogicManager - Card Actions & Game Rules', () => {
   })
 
   describe('Game Over & Deck Exhaustion', () => {
-    it('isGameOver returns true when any player reaches WIN_SCORE (30 points)', () => {
+    it('isGameOver returns true when any player reaches WIN_SCORE (40 points)', () => {
       expect(gameLogicManager.isGameOver()).toBe(false)
 
       players.addCardToTable({ id: 1, type: 'Lily', points: 15 }, 0)
-      players.addCardToTable({ id: 2, type: 'Lily', points: 10 }, 0)
-      players.addCardToTable({ id: 3, type: 'Daisy', points: 5 }, 0)
+      players.addCardToTable({ id: 2, type: 'Lily', points: 15 }, 0)
+      players.addCardToTable({ id: 3, type: 'Lily', points: 10 }, 0)
 
-      expect(gameLogicManager._getScore(0)).toBe(30)
+      expect(gameLogicManager._getScore(0)).toBe(40)
       expect(gameLogicManager.isGameOver()).toBe(true)
     })
 

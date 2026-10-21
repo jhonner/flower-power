@@ -20,7 +20,7 @@ paths:
 ## Balance Constraints
 - Fertilize capped at 15 points maximum
 - Each card can only be fertilized once (check `card.fertilized`)
-- Win condition: first to 20 points
+- Win condition: first to 40 points
 
 ## Testing
 - Test all game logic changes with AI simulation

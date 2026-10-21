@@ -139,12 +139,15 @@ describe('GameLogicManager - AI Strategies & Simulation', () => {
       expect(players.tableForId(0)).not.toContainEqual(expect.objectContaining({ id: 1 }))
     })
 
-    it('triggers defensive Pest when opponent has >= 20 points and high-value card', () => {
-      // Opponent at 20 points (Lily 10 + Lily 10)
+    it('triggers defensive Pest when opponent has >= 27 points and high-value card', () => {
+      // Opponent at 27 points (Lily 10 + Lily 10 + Daisy 5 + Rose 1 + Rose 1)
       players.addCardToTable({ id: 1, type: 'Lily', points: 10 }, 1)
       players.addCardToTable({ id: 2, type: 'Lily', points: 10 }, 1)
+      players.addCardToTable({ id: 3, type: 'Daisy', points: 5 }, 1)
+      players.addCardToTable({ id: 4, type: 'Rose', points: 1 }, 1)
+      players.addCardToTable({ id: 5, type: 'Rose', points: 1 }, 1)
       players.score()
-      expect(players.scoreForId(1)).toBe(20)
+      expect(players.scoreForId(1)).toBe(27)
 
       // Player has Pest and a flower card
       const pest = { id: 24, type: 'Pest' }
@@ -155,19 +158,19 @@ describe('GameLogicManager - AI Strategies & Simulation', () => {
       // Defensive mode should prioritize Pest over playing Rose
       const played = gameLogicManager.bestStrategy(0, [rose, pest])
       expect(played).toBe(true)
-      // One Lily (10 points) should have been destroyed by Pest
-      expect(players.tableForId(1)).toHaveLength(1)
+      // One high-value card (10 points) should have been destroyed by Pest
+      expect(players.tableForId(1)).toHaveLength(4)
     })
 
-    it('triggers defensive Water with lower threshold (>= 3 points) when opponent >= 20', () => {
-      // Opponent at 21 points (Daisy 5 + Daisy 5 + Sunflower 3 + Sunflower 3 + Daisy 5)
-      players.addCardToTable({ id: 1, type: 'Sunflower', points: 3 }, 1)
-      players.addCardToTable({ id: 2, type: 'Sunflower', points: 3 }, 1)
+    it('triggers defensive Water with lower threshold (>= 3 points) when opponent >= 27', () => {
+      // Opponent at 27 points (Lily 10 + Lily 10 + Daisy 5 + Rose 1 + Rose 1)
+      players.addCardToTable({ id: 1, type: 'Lily', points: 10 }, 1)
+      players.addCardToTable({ id: 2, type: 'Lily', points: 10 }, 1)
       players.addCardToTable({ id: 3, type: 'Daisy', points: 5 }, 1)
-      players.addCardToTable({ id: 4, type: 'Daisy', points: 5 }, 1)
-      players.addCardToTable({ id: 5, type: 'Daisy', points: 5 }, 1)
+      players.addCardToTable({ id: 4, type: 'Rose', points: 1 }, 1)
+      players.addCardToTable({ id: 5, type: 'Rose', points: 1 }, 1)
       players.score()
-      expect(players.scoreForId(1)).toBe(21)
+      expect(players.scoreForId(1)).toBe(27)
 
       const water = { id: 21, type: 'Water' }
       players.addCardToPlayer(0, water)
@@ -178,8 +181,12 @@ describe('GameLogicManager - AI Strategies & Simulation', () => {
 
     it('triggers defensive mode based on live table score even without players.score() called', () => {
       // players.scoreForId(1) remains 0 because score() has not been called
+      // But _getScore() computes live from table: 27 points triggers defensive
       players.addCardToTable({ id: 1, type: 'Lily', points: 10 }, 1)
       players.addCardToTable({ id: 2, type: 'Lily', points: 10 }, 1)
+      players.addCardToTable({ id: 3, type: 'Daisy', points: 5 }, 1)
+      players.addCardToTable({ id: 4, type: 'Rose', points: 1 }, 1)
+      players.addCardToTable({ id: 5, type: 'Rose', points: 1 }, 1)
       expect(players.scoreForId(1)).toBe(0)
 
       const pest = { id: 24, type: 'Pest' }
@@ -189,7 +196,7 @@ describe('GameLogicManager - AI Strategies & Simulation', () => {
 
       const played = gameLogicManager.bestStrategy(0, [rose, pest])
       expect(played).toBe(true)
-      expect(players.tableForId(1)).toHaveLength(1)
+      expect(players.tableForId(1)).toHaveLength(4)
     })
   })
 

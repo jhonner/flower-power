@@ -49,7 +49,7 @@ For Flower Power specifically:
 - [ ] Score updates correctly
 - [ ] Can use action cards (Water, Pest, Prune, Fertilize)
 - [ ] AI takes its turn automatically
-- [ ] Game over triggers at 20 points
+- [ ] Game over triggers at 40 points
 - [ ] Can restart game
 
 ### 6. Test New Feature Specifically

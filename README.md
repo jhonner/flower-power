@@ -5,7 +5,7 @@ A strategic card game built with Vue 3 where you compete against an AI opponent 
 ## 🎮 How to Play
 
 ### Objective
-Be the first player to reach **30 points** by playing flower cards to your table.
+Be the first player to reach **40 points** by playing flower cards to your table.
 
 ### Card Types
 
