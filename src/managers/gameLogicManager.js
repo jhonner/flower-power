@@ -619,49 +619,65 @@ class GameLogicManager {
   // Run a single AI vs AI game synchronously (no delays)
   simulateGame() {
     this.isSimulating = true
-    this.players.reset()
-    this.deck.create()
-    this.deck.shuffle()
-    this.turn.id = Math.round(Math.random())
-    this.deal()
+    try {
+      if (!this.players) this.players = playersStore()
+      if (!this.deck) this.deck = deckStore()
+      if (!this.turn) this.turn = turnStore()
 
-    let turnCount = 0
-    const maxTurns = 200
+      this.currentAction = undefined
+      this.pendingActionCard = null
+      this.pendingPlayerId = null
+      this.turn.count = 0
+      this.turn.select = -1
 
-    while (!this.isGameOver() && turnCount < maxTurns) {
-      const playerId = this.turn.id
-      const playerHand = this.players.handForId(playerId)
-      const availableCards = playerHand.filter(card => this._canPlayCard(card, playerId))
+      this.players.reset()
+      this.deck.create()
+      this.deck.shuffle()
+      this.turn.id = Math.round(Math.random())
+      this.deal()
 
-      let cardPlayed = false
-      if (availableCards.length > 0) {
-        cardPlayed = this.bestStrategy(playerId, availableCards)
+      let turnCount = 0
+      const maxTurns = 200
+
+      while (!this.isGameOver() && turnCount < maxTurns) {
+        const playerId = this.turn.id
+        const playerHand = this.players.handForId(playerId)
+        const availableCards = playerHand.filter(card => this._canPlayCard(card, playerId))
+
+        let cardPlayed = false
+        if (availableCards.length > 0) {
+          cardPlayed = this.bestStrategy(playerId, availableCards)
+        }
+
+        if (!cardPlayed && this._canDrawCard(playerId)) {
+          this.players.addCardToPlayer(playerId, this.deck.pop())
+        }
+
+        this.turn.id = this._otherPlayer(playerId)
+        turnCount++
       }
 
-      if (!cardPlayed && this._canDrawCard(playerId)) {
-        this.players.addCardToPlayer(playerId, this.deck.pop())
+      this.players.score()
+      const score0 = this.players.scoreForId(0)
+      const score1 = this.players.scoreForId(1)
+      const winner = this.getWinner()
+
+      return {
+        winner: winner !== null ? winner : -1,
+        scores: [score0, score1],
+        turns: turnCount
       }
-
-      this.turn.id = this._otherPlayer(playerId)
-      turnCount++
-    }
-
-    this.players.score()
-    const score0 = this.players.scoreForId(0)
-    const score1 = this.players.scoreForId(1)
-    this.isSimulating = false
-    return {
-      winner: score0 >= K.WIN_SCORE ? 0 : score1 >= K.WIN_SCORE ? 1 : -1,
-      scores: [score0, score1],
-      turns: turnCount
+    } finally {
+      this.isSimulating = false
     }
   }
 
   // Run multiple simulations and return statistics
   runSimulation(numGames = 100) {
+    const sanitizedGames = Math.max(1, parseInt(numGames, 10) || 100)
     const results = { wins: [0, 0], draws: 0, totalTurns: 0, games: [] }
 
-    for (let i = 0; i < numGames; i++) {
+    for (let i = 0; i < sanitizedGames; i++) {
       const result = this.simulateGame()
       results.games.push(result)
       results.totalTurns += result.turns
@@ -672,13 +688,57 @@ class GameLogicManager {
     }
 
     return {
+      totalGames: sanitizedGames,
       player0Wins: results.wins[0],
       player1Wins: results.wins[1],
       draws: results.draws,
-      avgTurns: Math.round(results.totalTurns / numGames),
+      drawRate: ((results.draws / sanitizedGames) * 100).toFixed(1) + "%",
+      avgTurns: Math.round(results.totalTurns / sanitizedGames),
       winRate: {
-        player0: ((results.wins[0] / numGames) * 100).toFixed(1) + "%",
-        player1: ((results.wins[1] / numGames) * 100).toFixed(1) + "%"
+        player0: ((results.wins[0] / sanitizedGames) * 100).toFixed(1) + "%",
+        player1: ((results.wins[1] / sanitizedGames) * 100).toFixed(1) + "%"
+      }
+    }
+  }
+
+  // Run simulations in non-blocking asynchronous chunks to avoid freezing the UI
+  async runSimulationAsync(numGames = 100, onProgress = null, chunkSize = 20) {
+    const sanitizedGames = Math.max(1, parseInt(numGames, 10) || 100)
+    const results = { wins: [0, 0], draws: 0, totalTurns: 0, games: [] }
+
+    let completed = 0
+    while (completed < sanitizedGames) {
+      const batchSize = Math.min(chunkSize, sanitizedGames - completed)
+      for (let i = 0; i < batchSize; i++) {
+        const result = this.simulateGame()
+        results.games.push(result)
+        results.totalTurns += result.turns
+
+        if (result.winner === 0) results.wins[0]++
+        else if (result.winner === 1) results.wins[1]++
+        else results.draws++
+      }
+      completed += batchSize
+
+      if (onProgress && typeof onProgress === 'function') {
+        onProgress(completed, sanitizedGames)
+      }
+
+      if (completed < sanitizedGames) {
+        await new Promise(resolve => setTimeout(resolve, 0))
+      }
+    }
+
+    return {
+      totalGames: sanitizedGames,
+      player0Wins: results.wins[0],
+      player1Wins: results.wins[1],
+      draws: results.draws,
+      drawRate: ((results.draws / sanitizedGames) * 100).toFixed(1) + "%",
+      avgTurns: Math.round(results.totalTurns / sanitizedGames),
+      winRate: {
+        player0: ((results.wins[0] / sanitizedGames) * 100).toFixed(1) + "%",
+        player1: ((results.wins[1] / sanitizedGames) * 100).toFixed(1) + "%"
       }
     }
   }
@@ -692,5 +752,6 @@ export const gameLogicManager = new GameLogicManager()
 if (typeof window !== "undefined") {
   window.simGame = () => gameLogicManager.simulateGame()
   window.runSim = (n = 100) => gameLogicManager.runSimulation(n)
+  window.runSimAsync = (n = 100) => gameLogicManager.runSimulationAsync(n)
   window.gameLog = () => gameLogicManager.logHistory
 }

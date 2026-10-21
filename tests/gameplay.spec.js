@@ -126,4 +126,24 @@ test.describe('Flower Power - Card Animations', () => {
     }
     expect(warnings).toHaveLength(0)
   })
+
+  test('can run AI vs AI simulation from home page', async ({ page }) => {
+    const errors = []
+    page.on('console', msg => {
+      if (msg.type() === 'error') {
+        errors.push(msg.text())
+      }
+    })
+
+    const runBtn = page.getByRole('button', { name: 'Run Simulation' })
+    await expect(runBtn).toBeVisible()
+    await runBtn.click()
+
+    await expect(page.locator('.sim-results')).toBeVisible({ timeout: 10000 })
+    await expect(page.locator('.sim-results')).toContainText('Results (100 games)')
+    await expect(page.locator('.sim-results')).toContainText('Player 0:')
+    await expect(page.locator('.sim-results')).toContainText('Player 1:')
+    expect(errors).toHaveLength(0)
+  })
 })
+

@@ -229,5 +229,37 @@ describe('GameLogicManager - AI Strategies & Simulation', () => {
       expect(stats.winRate.player0).toMatch(/^[0-9.]+%$/)
       expect(stats.winRate.player1).toMatch(/^[0-9.]+%$/)
     })
+
+    it('runs simulation successfully when manager stores are initially null (e.g. directly from HomeView)', () => {
+      vi.restoreAllMocks()
+      gameLogicManager.players = null
+      gameLogicManager.deck = null
+      gameLogicManager.turn = null
+
+      const stats = gameLogicManager.runSimulation(5)
+      expect(stats.player0Wins + stats.player1Wins + stats.draws).toBe(5)
+      expect(gameLogicManager.players).not.toBeNull()
+      expect(gameLogicManager.deck).not.toBeNull()
+      expect(gameLogicManager.turn).not.toBeNull()
+    })
+
+    it('runs runSimulationAsync non-blocking with progressive callbacks', async () => {
+      vi.restoreAllMocks()
+      const progressUpdates = []
+      const stats = await gameLogicManager.runSimulationAsync(15, (completed, total) => {
+        progressUpdates.push({ completed, total })
+      }, 5)
+
+      expect(stats.player0Wins + stats.player1Wins + stats.draws).toBe(15)
+      expect(progressUpdates.length).toBeGreaterThan(0)
+      expect(progressUpdates[progressUpdates.length - 1]).toEqual({ completed: 15, total: 15 })
+    })
+
+    it('sanitizes invalid game counts safely', () => {
+      vi.restoreAllMocks()
+      const stats = gameLogicManager.runSimulation('invalid')
+      expect(stats.totalGames).toBe(100)
+      expect(stats.player0Wins + stats.player1Wins + stats.draws).toBe(100)
+    })
   })
 })

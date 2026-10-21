@@ -8,6 +8,8 @@ export const deckStore = defineStore("deck", {
   getters: {},
   actions: {
     create() {
+      this.deck = {}
+      this.idx = []
       // Create deck
       for (let i = 0; i < K.DECK_SIZE; i++) {
         if (i < 20) {
