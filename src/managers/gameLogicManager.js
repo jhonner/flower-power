@@ -14,13 +14,74 @@ const ACTIONS = {
 class GameLogicManager {
   constructor() {
     this.currentAction = undefined
+    this.pendingActionCard = null
+    this.pendingPlayerId = null
     this.players = null
     this.deck = null
     this.turn = null
+    this.aiTimeoutId = null
+    this.isSimulating = false
+    this.logHistory = []
+    this.listeners = []
+  }
+
+  onLog(listener) {
+    this.listeners.push(listener)
+    return () => {
+      this.listeners = this.listeners.filter(l => l !== listener)
+    }
+  }
+
+  _getPlayerName(id) {
+    return id === K.AI_PLAYER_ID ? 'AI' : 'You'
+  }
+
+  log(message, type = 'info', meta = {}) {
+    if (this.isSimulating) return
+    const entry = {
+      timestamp: new Date().toLocaleTimeString(),
+      turnCount: this.turn ? this.turn.count : 0,
+      turnId: this.turn ? this.turn.id : null,
+      message,
+      type,
+      scores: {
+        ai: this._getScore(0),
+        human: this._getScore(1)
+      },
+      ...meta
+    }
+    this.logHistory.push(entry)
+    for (const listener of this.listeners) {
+      try {
+        listener(entry, this.logHistory)
+      } catch (e) {
+        console.error('Error in log listener:', e)
+      }
+    }
+
+    const colors = {
+      turn: 'color: #3498db; font-weight: bold;',
+      play: 'color: #2ecc71; font-weight: bold;',
+      action: 'color: #f39c12; font-weight: bold;',
+      draw: 'color: #9b59b6;',
+      cancel: 'color: #e74c3c;',
+      win: 'color: #e67e22; font-size: 1.1em; font-weight: bold;',
+      info: 'color: #95a5a6;'
+    }
+    const style = colors[type] || colors.info
+    console.log(`%c[Flower Power] ${message}`, style, `(Scores - AI: ${entry.scores.ai}, You: ${entry.scores.human})`)
   }
 
   // GAME SETUP METHODS
   newGame() {
+    if (this.aiTimeoutId) {
+      clearTimeout(this.aiTimeoutId)
+      this.aiTimeoutId = null
+    }
+    this.logHistory = []
+    this.currentAction = undefined
+    this.pendingActionCard = null
+    this.pendingPlayerId = null
     this.players = playersStore()
     this.deck = deckStore()
     this.turn = turnStore()
@@ -37,6 +98,12 @@ class GameLogicManager {
     // Set up turn and deal cards
     this.turn.random()
     this.deal()
+
+    this.log(`Game started! Starting player: ${this._getPlayerName(this.turn.id)}`, 'turn')
+
+    if (this.turn.id === K.AI_PLAYER_ID) {
+      this.aiTimeoutId = setTimeout(() => this.doNextTurn(), 600)
+    }
   }
 
   deal() {
@@ -45,25 +112,74 @@ class GameLogicManager {
         this.players.addCardToPlayer(i, this.deck.pop())
       }
     }
+    this.log('Initial hands dealt (5 cards each)', 'info')
+  }
+
+  _getScore(playerId) {
+    if (!this.players || !this.players.players || !this.players.players[playerId]) return 0
+    return this.players.tableForId(playerId).reduce((sum, card) => sum + (card.points || 0), 0)
   }
 
   // GAME FLOW METHODS
   isGameOver() {
     for (let i = 0; i < K.NUM_PLAYERS; i++) {
-      if (this.players.scoreForId(i) >= 20) {
+      if (this._getScore(i) >= K.WIN_SCORE) {
         return true
       }
     }
+
+    if (this.deck && this.deck.idx && this.deck.idx.length === 0) {
+      const p0Moves = this.players.handForId(0).some(card => this._canPlayCard(card, 0))
+      const p1Moves = this.players.handForId(1).some(card => this._canPlayCard(card, 1))
+      if (!p0Moves && !p1Moves) {
+        return true
+      }
+    }
+
     return false
   }
 
+  getWinner() {
+    const score0 = this._getScore(0)
+    const score1 = this._getScore(1)
+    if (score0 >= K.WIN_SCORE && score1 < K.WIN_SCORE) return 0
+    if (score1 >= K.WIN_SCORE && score0 < K.WIN_SCORE) return 1
+    if (score0 >= K.WIN_SCORE && score1 >= K.WIN_SCORE) {
+      return score0 > score1 ? 0 : score1 > score0 ? 1 : -1
+    }
+    if (this.deck && this.deck.idx && this.deck.idx.length === 0) {
+      if (score0 > score1) return 0
+      if (score1 > score0) return 1
+      return -1
+    }
+    return null
+  }
+
   nextTurn() { 
+    if (this.aiTimeoutId) {
+      clearTimeout(this.aiTimeoutId)
+      this.aiTimeoutId = null
+    }
     this.turn.next()
-    setTimeout(() => this.doNextTurn(), 500)
+    const nextPlayer = this._getPlayerName(this.turn.id)
+    this.log(`Turn ${this.turn.count}: It is now ${nextPlayer}'s turn`, 'turn')
+
+    if (this.isGameOver()) {
+      const winner = this.getWinner()
+      const winnerName = winner === -1 ? 'Nobody (Tie)' : this._getPlayerName(winner)
+      this.log(`Game Over! Winner: ${winnerName} (Final: AI ${this._getScore(0)} - You ${this._getScore(1)})`, 'win')
+      return
+    }
+
+    if (!this.isSimulating && this.turn.id === K.AI_PLAYER_ID) {
+      this.aiTimeoutId = setTimeout(() => this.doNextTurn(), 600)
+    }
   }
 
   doNextTurn() { 
-    if (this.turn.id === K.AI_PLAYER_ID) {  // Assuming AI_PLAYER_ID is a constant for the AI player
+    this.aiTimeoutId = null
+    if (this.isGameOver()) return
+    if (this.turn.id === K.AI_PLAYER_ID) {
       this.playAITurn(this.turn.id)
     }   
   }
@@ -87,11 +203,11 @@ class GameLogicManager {
   
   bestStrategy(playerId, availableCards) {
       const opId = this._otherPlayer(playerId)
-      const opponentScore = this.players.scoreForId(opId)
+      const opponentScore = this._getScore(opId)
       const difficulty = K.DIFFICULTY[K.currentDifficulty]
 
-      // DEFENSIVE MODE: Opponent near victory (15+ points) - prioritize disruption
-      if (difficulty.defensivePlay && opponentScore >= 15) {
+      // DEFENSIVE MODE: Opponent near victory (DEFENSIVE_THRESHOLD+ points) - prioritize disruption
+      if (difficulty.defensivePlay && opponentScore >= K.DEFENSIVE_THRESHOLD) {
         // Prioritize Pest to destroy their high-value cards
         if (availableCards.some(card => card.type === ACTIONS.PEST) && this._canUsePest(playerId)) {
           const target = this.bestCardToPest(playerId)
@@ -247,7 +363,9 @@ class GameLogicManager {
   // PLAYER ACTIONS
   drawCard(playerId) {
     if (this._canDrawCard(playerId)) {
-      this.players.addCardToPlayer(playerId, this.deck.pop())
+      const card = this.deck.pop()
+      this.players.addCardToPlayer(playerId, card)
+      this.log(`${this._getPlayerName(playerId)} drew a card (${this.deck.idx.length} left in deck)`, 'draw')
       this.nextTurn()
       return true
     }
@@ -256,7 +374,7 @@ class GameLogicManager {
 
   playCardForId(card, playerId) {
     const allowNextTurn = this.handlePlayedCard(card, playerId)
-    if (allowNextTurn || this.turn.id === K.AI_PLAYER_ID) {
+    if (allowNextTurn) {
       this.nextTurn()
     }
   }
@@ -265,6 +383,7 @@ class GameLogicManager {
     if (this._canDiscardFromTable(playerId)) {
       this.players.removeCardFromTable(card, playerId)
       this.turn.select = -1
+      this.log(`${this._getPlayerName(playerId)} discarded ${card.type} from table`, 'action')
       this.nextTurn()
       return true
     }
@@ -283,31 +402,50 @@ class GameLogicManager {
         this.endWater(card, playerId)
         break
       case ACTIONS.FERTILIZE:
+        if (card.fertilized) return
         this.endFertilize(card, playerId)
         break
     }
-    this.currentAction = undefined
+  }
+
+  cancelCurrentAction(playerId) {
+    if (this.pendingActionCard && this.pendingPlayerId === playerId) {
+      const actionName = this.currentAction
+      this.players.addCardToPlayer(playerId, this.pendingActionCard)
+      this.pendingActionCard = null
+      this.pendingPlayerId = null
+      this.currentAction = undefined
+      this.turn.select = -1
+      this.log(`${this._getPlayerName(playerId)} cancelled ${actionName} action`, 'cancel')
+      return true
+    }
+    return false
   }
 
   handlePlayedCard(card, playerId) {
     switch (card.type) {
       case ACTIONS.PRUNE:
         this.currentAction = ACTIONS.PRUNE
+        this.log(`${this._getPlayerName(playerId)} initiated Prune action`, 'action')
         return this.startPrune(card, playerId)
       case ACTIONS.PEST:
         this.currentAction = ACTIONS.PEST
+        this.log(`${this._getPlayerName(playerId)} initiated Pest action`, 'action')
         return this.startPest(card, playerId)
       case ACTIONS.WATER:
         this.currentAction = ACTIONS.WATER
+        this.log(`${this._getPlayerName(playerId)} initiated Water action`, 'action')
         return this.startWater(card, playerId)
       case ACTIONS.FERTILIZE:
         this.currentAction = ACTIONS.FERTILIZE
+        this.log(`${this._getPlayerName(playerId)} initiated Fertilize action`, 'action')
         return this.startFertilize(card, playerId)
       default:
         // Add flower to table
         if (this.players.tableForId(playerId).length < 5) {
           this.currentAction = undefined
           this.players.playCardFromHand(card, playerId)
+          this.log(`${this._getPlayerName(playerId)} planted ${card.type} (+${card.points} pts)`, 'play')
           return true
         }
         return false
@@ -321,14 +459,20 @@ class GameLogicManager {
       return false
     }
     
+    this.pendingActionCard = card
+    this.pendingPlayerId = playerId
     this.players.removeCardFromHand(card, playerId)
     this.turn.select = playerId
     return false
   }
 
   endPrune(card, playerId) {
+    this.pendingActionCard = null
+    this.pendingPlayerId = null
+    this.currentAction = undefined
     this.players.removeCardFromTable(card, playerId)
     this.turn.select = -1
+    this.log(`${this._getPlayerName(playerId)} pruned ${card.type} (${card.points} pts) from their table`, 'action')
     this.nextTurn()
   }
 
@@ -341,14 +485,22 @@ class GameLogicManager {
       return false
     }
     
+    this.pendingActionCard = card
+    this.pendingPlayerId = playerId
     this.players.removeCardFromHand(card, playerId)
     this.turn.select = opId
     return false
   }
 
   endPest(card, playerId) {
+    this.pendingActionCard = null
+    this.pendingPlayerId = null
+    this.currentAction = undefined
     this.players.removeCardFromTable(card, playerId)
     this.turn.select = -1
+    const victim = this._getPlayerName(playerId)
+    const attacker = this._getPlayerName(this._otherPlayer(playerId))
+    this.log(`${attacker} used Pest to destroy ${card.type} (${card.points} pts) on ${victim}'s table`, 'action')
     this.nextTurn()
   }
 
@@ -361,16 +513,24 @@ class GameLogicManager {
       return false
     }
     
+    this.pendingActionCard = card
+    this.pendingPlayerId = playerId
     this.players.removeCardFromHand(card, playerId)
     this.turn.select = opId
     return false
   }
 
   endWater(card, playerId) {
+    this.pendingActionCard = null
+    this.pendingPlayerId = null
+    this.currentAction = undefined
     const opId = this._otherPlayer(playerId)
     const stolenCard = this.players.removeCardFromTable(card, playerId)
     this.players.addCardToTable(stolenCard, opId)
     this.turn.select = -1
+    const victim = this._getPlayerName(playerId)
+    const thief = this._getPlayerName(opId)
+    this.log(`${thief} used Water to steal ${stolenCard.type} (${stolenCard.points} pts) from ${victim}`, 'action')
     this.nextTurn()
   }
 
@@ -381,14 +541,21 @@ class GameLogicManager {
       return false
     }
     
+    this.pendingActionCard = card
+    this.pendingPlayerId = playerId
     this.players.removeCardFromHand(card, playerId)
     this.turn.select = playerId
     return false
   }
 
   endFertilize(card, playerId) {
+    this.pendingActionCard = null
+    this.pendingPlayerId = null
+    this.currentAction = undefined
+    const oldPoints = card.points
     this.players.doubleCardFromTable(card, playerId)
     this.turn.select = -1
+    this.log(`${this._getPlayerName(playerId)} fertilized ${card.type} (${oldPoints} ➔ ${card.points} pts)`, 'action')
     this.nextTurn()
   }
 
@@ -451,6 +618,7 @@ class GameLogicManager {
 
   // Run a single AI vs AI game synchronously (no delays)
   simulateGame() {
+    this.isSimulating = true
     this.players.reset()
     this.deck.create()
     this.deck.shuffle()
@@ -481,8 +649,9 @@ class GameLogicManager {
     this.players.score()
     const score0 = this.players.scoreForId(0)
     const score1 = this.players.scoreForId(1)
+    this.isSimulating = false
     return {
-      winner: score0 >= 20 ? 0 : score1 >= 20 ? 1 : -1,
+      winner: score0 >= K.WIN_SCORE ? 0 : score1 >= K.WIN_SCORE ? 1 : -1,
       scores: [score0, score1],
       turns: turnCount
     }
@@ -523,4 +692,5 @@ export const gameLogicManager = new GameLogicManager()
 if (typeof window !== "undefined") {
   window.simGame = () => gameLogicManager.simulateGame()
   window.runSim = (n = 100) => gameLogicManager.runSimulation(n)
+  window.gameLog = () => gameLogicManager.logHistory
 }

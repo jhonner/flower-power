@@ -199,14 +199,14 @@ describe('GameLogicManager - Card Actions & Game Rules', () => {
   })
 
   describe('Game Over & Deck Exhaustion', () => {
-    it('isGameOver returns true when any player reaches 20 points', () => {
+    it('isGameOver returns true when any player reaches WIN_SCORE (30 points)', () => {
       expect(gameLogicManager.isGameOver()).toBe(false)
 
       players.addCardToTable({ id: 1, type: 'Lily', points: 15 }, 0)
-      players.addCardToTable({ id: 2, type: 'Daisy', points: 5 }, 0)
-      players.score()
+      players.addCardToTable({ id: 2, type: 'Lily', points: 10 }, 0)
+      players.addCardToTable({ id: 3, type: 'Daisy', points: 5 }, 0)
 
-      expect(players.scoreForId(0)).toBe(20)
+      expect(gameLogicManager._getScore(0)).toBe(30)
       expect(gameLogicManager.isGameOver()).toBe(true)
     })
 
@@ -221,6 +221,78 @@ describe('GameLogicManager - Card Actions & Game Rules', () => {
         players.addCardToPlayer(0, { id: i, type: 'Rose', points: 1 })
       }
       expect(gameLogicManager._canDrawCard(0)).toBe(false)
+    })
+
+    it('triggers game over on deck exhaustion stalemate and awards win to highest table score', () => {
+      deck.idx = []
+      // Player 0 has 12 pts, Player 1 has 8 pts, neither has playable cards in hand
+      players.addCardToTable({ id: 1, type: 'Lily', points: 10 }, 0)
+      players.addCardToTable({ id: 2, type: 'Rose', points: 2 }, 0)
+      players.addCardToTable({ id: 3, type: 'Daisy', points: 5 }, 1)
+      players.addCardToTable({ id: 4, type: 'Sunflower', points: 3 }, 1)
+
+      expect(gameLogicManager.isGameOver()).toBe(true)
+      expect(gameLogicManager.getWinner()).toBe(0)
+    })
+
+    it('declares a tie on deck exhaustion stalemate when scores are equal', () => {
+      deck.idx = []
+      players.addCardToTable({ id: 1, type: 'Daisy', points: 5 }, 0)
+      players.addCardToTable({ id: 2, type: 'Daisy', points: 5 }, 1)
+
+      expect(gameLogicManager.isGameOver()).toBe(true)
+      expect(gameLogicManager.getWinner()).toBe(-1)
+    })
+  })
+
+  describe('Action Cancellation ("Undo Selection")', () => {
+    it('cancels pending Water action and returns card to hand', () => {
+      players.addCardToTable({ id: 1, type: 'Sunflower', points: 3 }, 1)
+      const water = { id: 21, type: 'Water' }
+      players.addCardToPlayer(0, water)
+
+      gameLogicManager.handlePlayedCard(water, 0)
+      expect(gameLogicManager.currentAction).toBe('Water')
+      expect(turn.select).toBe(1)
+      expect(players.handForId(0)).toHaveLength(0)
+
+      const cancelled = gameLogicManager.cancelCurrentAction(0)
+      expect(cancelled).toBe(true)
+      expect(gameLogicManager.currentAction).toBeUndefined()
+      expect(turn.select).toBe(-1)
+      expect(players.handForId(0)).toContainEqual(water)
+    })
+
+    it('rejects cancellation from the wrong player id', () => {
+      const prune = { id: 22, type: 'Prune' }
+      players.addCardToTable({ id: 1, type: 'Rose', points: 1 }, 0)
+      players.addCardToPlayer(0, prune)
+
+      gameLogicManager.handlePlayedCard(prune, 0)
+      const cancelledWrong = gameLogicManager.cancelCurrentAction(1)
+      expect(cancelledWrong).toBe(false)
+      expect(gameLogicManager.currentAction).toBe('Prune')
+
+      const cancelledRight = gameLogicManager.cancelCurrentAction(0)
+      expect(cancelledRight).toBe(true)
+    })
+
+    it('rejects targeting already-fertilized card in handleCardFromTableForId', () => {
+      const lily = { id: 1, type: 'Lily', points: 15, fertilized: true }
+      players.addCardToTable(lily, 0)
+
+      const fertilize = { id: 23, type: 'Fertilize' }
+      players.addCardToPlayer(0, fertilize)
+      gameLogicManager.handlePlayedCard(fertilize, 0)
+      expect(gameLogicManager.currentAction).toBe('Fertilize')
+
+      // Click on already-fertilized lily
+      gameLogicManager.handleCardFromTableForId(lily, 0)
+
+      // Action should NOT have completed; lily should remain 15 and action still pending
+      expect(lily.points).toBe(15)
+      expect(gameLogicManager.currentAction).toBe('Fertilize')
+      expect(gameLogicManager.nextTurn).not.toHaveBeenCalled()
     })
   })
 })

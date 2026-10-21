@@ -1,7 +1,7 @@
 # Flower Power - Claude Instructions
 
 ## Project Overview
-A Vue 3 card game where players compete to reach 20 points by playing flower cards. Currently supports human vs AI with three difficulty levels.
+A Vue 3 card game where players compete to reach 30 points by playing flower cards. Currently supports human vs AI with three difficulty levels.
 
 ## Tech Stack
 - Vue 3 with Composition API (`<script setup>`)
@@ -32,10 +32,10 @@ npm run lint:fix # Auto-fix lint issues
 - Test in browser before committing
 
 ## Current Roadmap
-See memory file `flower-power-roadmap.md` for planned features:
-1. UI Improvements (animations, sounds, mobile)
-2. Online PvP (WebSocket, matchmaking)
-3. Deck Building (collections, custom decks)
+See memory file `./flower-power-roadmap.md` for gameplay analysis, bugs, and phased feature plan:
+1. Phase 1: Bug & Core Loop Fixes (AI hidden hand, AI score check, first-turn freeze, action cancel, deck depletion)
+2. Phase 2: Visual Card Redesign & Turn Feedback (Botanical emojis, discard pile, action toast)
+3. Phase 3: Botanical Synergies & Retention (Rose Thorns, Sunflower Swarm, Daisy Tempo, Weather rules)
 
 ## Code Style
 - No semicolons (enforced by ESLint)
@@ -46,7 +46,7 @@ See memory file `flower-power-roadmap.md` for planned features:
 ## Game Rules
 
 ### Objective
-First player to reach 20 points wins.
+First player to reach 30 points wins.
 
 ### Card Types
 **Flowers** (score when on table):

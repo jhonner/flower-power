@@ -1,6 +1,6 @@
 <template>
   <div style class="card" :class="isOpponent" @click="select">
-    <p class="lisible">{{ card.type }} {{ card.points }}</p>
+    <p v-if="!isFaceDown" class="lisible">{{ card.type }} {{ card.points }}</p>
   </div>
 </template>
 
@@ -15,21 +15,27 @@ const props = defineProps(["id", "card"])
 const turn = turnStore()
 const players = playersStore()
 
-const isOpponent = computed(() => ({
-  opponent: props.id === 0
-}))
-
 function isFromHand() {
   return players.isFromHand(props.card, props.id)
 }
 
+const isFaceDown = computed(() => props.id === 0 && isFromHand())
+
+const isOpponent = computed(() => ({
+  opponent: isFaceDown.value
+}))
+
 function select() {
+  if (isFaceDown.value) return
+
   if (turn.select === props.id) {
-    gameLogicManager.handleCardFromTableForId(props.card, turn.select)
+    if (!isFromHand()) {
+      gameLogicManager.handleCardFromTableForId(props.card, turn.select)
+    }
   } else {
     if (turn.select === -1 && turn.id === props.id && isFromHand()) {
       gameLogicManager.playCardForId(props.card, props.id)
-    } else {
+    } else if (turn.select === -1 && turn.id === props.id && !isFromHand()) {
       gameLogicManager.discardFromTableForId(props.card, props.id)
     }
   }
