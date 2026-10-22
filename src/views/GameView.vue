@@ -37,45 +37,51 @@
         </div>
       </Transition>
 
-      <div class="deck">
-        <div class="discard" :class="{ 'has-card': topDiscard }">
-          <Transition name="discard-receive">
-            <div v-if="topDiscard" :key="topDiscard.id" class="discard-card-wrapper">
-              <CardComp :id="-1" :card="topDiscard" />
-              <span class="discard-badge">{{ discardCount }}</span>
+      <!-- Main Game Board Area (Players on left, Deck on right) -->
+      <div class="game-board-area">
+        <div class="players-column">
+          <PlayerComp :class="isTurn(0)" :id="0" />
+          <PlayerComp :class="isTurn(1)" :id="1" />
+        </div>
+
+        <div class="deck-column">
+          <div class="deck">
+            <div class="discard" :class="{ 'has-card': topDiscard }">
+              <Transition name="discard-receive">
+                <div v-if="topDiscard" :key="topDiscard.id" class="discard-card-wrapper">
+                  <CardComp :id="-1" :card="topDiscard" />
+                  <span class="discard-badge">{{ discardCount }}</span>
+                </div>
+              </Transition>
+              <div v-if="!topDiscard" class="discard-placeholder">
+                <span class="discard-icon">🍂</span>
+                <span class="discard-text">Discard</span>
+              </div>
             </div>
-          </Transition>
-          <div v-if="!topDiscard" class="discard-placeholder">
-            <span class="discard-icon">🍂</span>
-            <span class="discard-text">Discard</span>
+            <div
+              class="deckCard"
+              :class="{ 'deck-empty': deckCount === 0 }"
+              @click="draw"
+              :title="deckCount === 0 ? 'Deck is empty' : 'Click to draw a card'"
+            >
+              <template v-if="deckCount > 0">
+                <span class="deck-count">{{ deckCount }}</span>
+              </template>
+              <div v-else class="deck-empty-placeholder">
+                <span class="deck-empty-icon">🎴</span>
+                <span class="deck-empty-label">Empty</span>
+              </div>
+            </div>
+            <button
+              v-if="canPassTurn"
+              class="pass-turn-btn"
+              @click="passTurn"
+              title="Pass turn when deck is empty"
+            >
+              Pass Turn ⏭
+            </button>
           </div>
         </div>
-        <div
-          class="deckCard"
-          :class="{ 'deck-empty': deckCount === 0 }"
-          @click="draw"
-          :title="deckCount === 0 ? 'Deck is empty' : 'Click to draw a card'"
-        >
-          <template v-if="deckCount > 0">
-            <span class="deck-count">{{ deckCount }}</span>
-          </template>
-          <div v-else class="deck-empty-placeholder">
-            <span class="deck-empty-icon">🎴</span>
-            <span class="deck-empty-label">Empty</span>
-          </div>
-        </div>
-        <button
-          v-if="canPassTurn"
-          class="pass-turn-btn"
-          @click="passTurn"
-          title="Pass turn when deck is empty"
-        >
-          Pass Turn ⏭
-        </button>
-      </div>
-      <div>
-        <PlayerComp :class="isTurn(0)" :id="0" />
-        <PlayerComp :class="isTurn(1)" :id="1" />
       </div>
 
       <!-- Game Over Overlay -->
@@ -748,6 +754,27 @@ function restartGame() {
   background: #1a252f;
 }
 
+/* Board Area (Players on left, Deck vertically centered on right) */
+.game-board-area {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  width: 100%;
+}
+
+.players-column {
+  flex: 0 0 560px;
+}
+
+.deck-column {
+  flex: 0 0 110px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Outer layout wrapper */
 .game-view-wrapper {
   display: flex;
@@ -756,11 +783,11 @@ function restartGame() {
   gap: 20px;
   margin: 10px auto;
   width: 100%;
-  max-width: 1060px;
+  max-width: 1120px;
   position: relative;
 }
 
-@media (max-width: 1050px) {
+@media (max-width: 1100px) {
   .game-view-wrapper {
     flex-direction: column;
     align-items: center;
