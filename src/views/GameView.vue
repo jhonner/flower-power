@@ -38,11 +38,13 @@
 
     <div class="deck">
       <div class="discard" :class="{ 'has-card': topDiscard }">
-        <template v-if="topDiscard">
-          <CardComp :id="-1" :card="topDiscard" />
-          <span class="discard-badge">{{ discardCount }}</span>
-        </template>
-        <div v-else class="discard-placeholder">
+        <Transition name="discard-receive">
+          <div v-if="topDiscard" :key="topDiscard.id" class="discard-card-wrapper">
+            <CardComp :id="-1" :card="topDiscard" />
+            <span class="discard-badge">{{ discardCount }}</span>
+          </div>
+        </Transition>
+        <div v-if="!topDiscard" class="discard-placeholder">
           <span class="discard-icon">🍂</span>
           <span class="discard-text">Discard</span>
         </div>
@@ -555,15 +557,70 @@ function restartGame() {
   background: #e74c3c;
 }
 
-.cast-pop-enter-active,
-.cast-pop-leave-active {
-  transition: all 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.25);
+/* Cast Arena Transition (Delayed 0.18s so card leaves hand first) */
+.cast-pop-enter-active {
+  animation: cast-pop-in 0.28s cubic-bezier(0.18, 0.89, 0.32, 1.25) 0.18s backwards;
 }
 
-.cast-pop-enter-from,
-.cast-pop-leave-to {
-  opacity: 0;
-  transform: scale(0.88) translateY(-10px);
+.cast-pop-leave-active {
+  animation: cast-pop-out 0.2s ease-in forwards;
+}
+
+@keyframes cast-pop-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes cast-pop-out {
+  0% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.85) translateY(-8px);
+  }
+}
+
+/* Discard Card Receiving Animation (Delayed 0.22s so table card arrives first) */
+.discard-card-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.discard-receive-enter-active {
+  animation: discard-receive-pop 0.28s cubic-bezier(0.18, 0.89, 0.32, 1.25) 0.22s backwards;
+}
+
+.discard-receive-leave-active {
+  position: absolute;
+  animation: discard-fade-out 0.15s ease-in;
+}
+
+@keyframes discard-receive-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes discard-fade-out {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 .game-over-overlay {

@@ -122,70 +122,86 @@
 .card-transition-group {
   display: flex;
   justify-content: left;
+  position: relative;
+  min-height: 140px;
 }
 
 /* Human Hand Transitions (Hand at bottom, Deck at right-center) */
 .card-human-hand-enter-active {
-  animation: draw-to-human-hand 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: draw-to-human-hand 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .card-human-hand-leave-active {
-  animation: play-from-human-hand 0.35s ease-in;
+  animation: play-from-human-hand 0.2s ease-in;
+  position: absolute;
+  pointer-events: none;
+  z-index: 15;
 }
 .card-human-hand-move {
-  transition: transform 0.3s ease;
+  transition: transform 0.25s ease;
 }
 
 /* AI Hand Transitions (Hand at top, Deck at right-center) */
 .card-ai-hand-enter-active {
-  animation: draw-to-ai-hand 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: draw-to-ai-hand 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .card-ai-hand-leave-active {
-  animation: play-from-ai-hand 0.35s ease-in;
+  animation: play-from-ai-hand 0.2s ease-in;
+  position: absolute;
+  pointer-events: none;
+  z-index: 15;
 }
 .card-ai-hand-move {
-  transition: transform 0.3s ease;
+  transition: transform 0.25s ease;
 }
 
-/* Human Table Transitions (Enters from hand below, Exits to discard right) */
+/* Human Table Transitions (Delayed 0.2s so card leaves hand first) */
 .card-human-table-enter-active {
-  animation: plant-to-human-table 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.25);
+  animation: plant-to-human-table 0.32s cubic-bezier(0.18, 0.89, 0.32, 1.25) 0.2s backwards;
 }
 .card-human-table-leave-active {
-  animation: discard-from-human-table 0.4s cubic-bezier(0.4, 0, 0.9, 1);
+  animation: discard-from-human-table 0.24s cubic-bezier(0.4, 0, 0.9, 1);
+  position: absolute;
+  pointer-events: none;
+  z-index: 15;
 }
 .card-human-table-move {
-  transition: transform 0.3s ease;
+  transition: transform 0.25s ease;
 }
 
-/* AI Table Transitions (Enters from hand above, Exits to discard right) */
+/* AI Table Transitions (Delayed 0.2s so card leaves hand first) */
 .card-ai-table-enter-active {
-  animation: plant-to-ai-table 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.25);
+  animation: plant-to-ai-table 0.32s cubic-bezier(0.18, 0.89, 0.32, 1.25) 0.2s backwards;
 }
 .card-ai-table-leave-active {
-  animation: discard-from-ai-table 0.4s cubic-bezier(0.4, 0, 0.9, 1);
+  animation: discard-from-ai-table 0.24s cubic-bezier(0.4, 0, 0.9, 1);
+  position: absolute;
+  pointer-events: none;
+  z-index: 15;
 }
 .card-ai-table-move {
-  transition: transform 0.3s ease;
+  transition: transform 0.25s ease;
 }
 
 /* Generic Fallbacks */
 .card-hand-enter-active {
-  animation: draw-to-human-hand 0.45s ease-out;
+  animation: draw-to-human-hand 0.4s ease-out;
 }
 .card-hand-leave-active {
-  animation: play-from-human-hand 0.35s ease-in;
+  animation: play-from-human-hand 0.2s ease-in;
+  position: absolute;
 }
 .card-hand-move {
-  transition: transform 0.3s ease;
+  transition: transform 0.25s ease;
 }
 .card-table-enter-active {
-  animation: plant-to-human-table 0.4s ease-out;
+  animation: plant-to-human-table 0.32s ease-out 0.2s backwards;
 }
 .card-table-leave-active {
-  animation: discard-from-human-table 0.4s ease-in;
+  animation: discard-from-human-table 0.24s ease-in;
+  position: absolute;
 }
 .card-table-move {
-  transition: transform 0.3s ease;
+  transition: transform 0.25s ease;
 }
 
 /* Keyframe Animations */
