@@ -49,8 +49,19 @@
           <span class="discard-text">Discard</span>
         </div>
       </div>
-      <div class="deckCard" @click="draw">
-        <span class="deck-count">{{ deckCount }}</span>
+      <div
+        class="deckCard"
+        :class="{ 'deck-empty': deckCount === 0 }"
+        @click="draw"
+        :title="deckCount === 0 ? 'Deck is empty' : 'Click to draw a card'"
+      >
+        <template v-if="deckCount > 0">
+          <span class="deck-count">{{ deckCount }}</span>
+        </template>
+        <div v-else class="deck-empty-placeholder">
+          <span class="deck-empty-icon">🎴</span>
+          <span class="deck-empty-label">Empty</span>
+        </div>
       </div>
       <button
         v-if="canPassTurn"
@@ -461,6 +472,39 @@ function restartGame() {
 
 .pass-turn-btn:hover {
   background: #d35400;
+}
+
+/* Empty Deck Slot */
+.deckCard.deck-empty {
+  background-image: none !important;
+  border: 2px dashed rgba(255, 255, 255, 0.25) !important;
+  background-color: rgba(0, 0, 0, 0.25) !important;
+  cursor: not-allowed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.deck-empty-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: rgba(255, 255, 255, 0.4);
+  user-select: none;
+}
+
+.deck-empty-icon {
+  font-size: 1.8em;
+  opacity: 0.45;
+}
+
+.deck-empty-label {
+  font-size: 0.75em;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }
 
 /* Action Cast Arena */
