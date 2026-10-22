@@ -480,6 +480,9 @@ class GameLogicManager {
     if (this._canDiscardFromTable(playerId)) {
       this.consecutivePasses = 0
       this.players.removeCardFromTable(card, playerId)
+      if (this.deck && this.deck.discardCard) {
+        this.deck.discardCard(card)
+      }
       this.turn.select = -1
       this.log(
         `${this._getPlayerName(playerId)} discarded ${this._formatCard(card)} from table`,
@@ -572,6 +575,11 @@ class GameLogicManager {
 
   endPrune(card, playerId) {
     this.consecutivePasses = 0
+    if (this.deck && this.deck.discardCard) {
+      if (this.pendingActionCard) this.deck.discardCard(this.pendingActionCard)
+      this.deck.discardCard(card)
+    }
+    card._highlightEffect = 'pruned'
     this.pendingActionCard = null
     this.pendingPlayerId = null
     this.currentAction = undefined
@@ -599,6 +607,11 @@ class GameLogicManager {
 
   endPest(card, playerId) {
     this.consecutivePasses = 0
+    if (this.deck && this.deck.discardCard) {
+      if (this.pendingActionCard) this.deck.discardCard(this.pendingActionCard)
+      this.deck.discardCard(card)
+    }
+    card._highlightEffect = 'pested'
     this.pendingActionCard = null
     this.pendingPlayerId = null
     this.currentAction = undefined
@@ -628,11 +641,18 @@ class GameLogicManager {
 
   endWater(card, playerId) {
     this.consecutivePasses = 0
+    if (this.deck && this.deck.discardCard && this.pendingActionCard) {
+      this.deck.discardCard(this.pendingActionCard)
+    }
     this.pendingActionCard = null
     this.pendingPlayerId = null
     this.currentAction = undefined
     const opId = this._otherPlayer(playerId)
     const stolenCard = this.players.removeCardFromTable(card, playerId)
+    stolenCard._highlightEffect = 'stolen'
+    if (!this.isSimulating) {
+      setTimeout(() => { if (stolenCard) delete stolenCard._highlightEffect }, 1000)
+    }
     this.players.addCardToTable(stolenCard, opId)
     this.turn.select = -1
     const victim = this._getPlayerName(playerId)
@@ -657,11 +677,18 @@ class GameLogicManager {
 
   endFertilize(card, playerId) {
     this.consecutivePasses = 0
+    if (this.deck && this.deck.discardCard && this.pendingActionCard) {
+      this.deck.discardCard(this.pendingActionCard)
+    }
     this.pendingActionCard = null
     this.pendingPlayerId = null
     this.currentAction = undefined
     const oldPoints = card.points
     this.players.doubleCardFromTable(card, playerId)
+    card._highlightEffect = 'fertilized'
+    if (!this.isSimulating) {
+      setTimeout(() => { if (card) delete card._highlightEffect }, 800)
+    }
     this.turn.select = -1
     this.log(`${this._getPlayerName(playerId)} fertilized ${card.type} [#${card.id}] (${oldPoints} ➔ ${card.points} pts)`, 'action')
     this.nextTurn()

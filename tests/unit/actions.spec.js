@@ -348,6 +348,30 @@ describe('GameLogicManager - Card Actions & Game Rules', () => {
       expect(report).toContain('AI initial hand:')
       expect(report).toContain('You initial hand:')
     })
+
+    it('collects cards into deck.discard when actions resolve or table cards are pruned/discarded', () => {
+      // 1. Water steals flower and Water action card lands in discard pile
+      const water = { id: 21, type: 'Water' }
+      const lily = { id: 10, type: 'Lily', points: 10 }
+      players.addCardToTable(lily, 1)
+      players.addCardToPlayer(0, water)
+      gameLogicManager.handlePlayedCard(water, 0)
+      gameLogicManager.handleCardFromTableForId(lily, 1)
+
+      expect(deck.discardCount).toBeGreaterThan(0)
+      expect(deck.topDiscard).toEqual(water)
+
+      // 2. Prune card removes table flower and both land in discard pile
+      const prune = { id: 22, type: 'Prune' }
+      const rose = { id: 1, type: 'Rose', points: 1 }
+      players.addCardToTable(rose, 0)
+      players.addCardToPlayer(0, prune)
+      gameLogicManager.handlePlayedCard(prune, 0)
+      gameLogicManager.handleCardFromTableForId(rose, 0)
+
+      expect(deck.discard.some(c => c.id === prune.id)).toBe(true)
+      expect(deck.discard.some(c => c.id === rose.id)).toBe(true)
+    })
   })
 })
 

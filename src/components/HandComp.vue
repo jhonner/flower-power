@@ -1,6 +1,6 @@
 <template>
   <div class="hand cardFlex">
-    <TransitionGroup name="card-hand" tag="div" class="card-transition-group">
+    <TransitionGroup :name="id === 0 ? 'card-ai-hand' : 'card-human-hand'" tag="div" class="card-transition-group">
       <CardComp v-for="card in hand" :key="card.id" :card="card" :id="id" />
     </TransitionGroup>
   </div>
