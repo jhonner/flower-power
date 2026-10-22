@@ -1,5 +1,4 @@
 <template>
-  <h1>Flower Power</h1>
   <RouterView />
 </template>
 

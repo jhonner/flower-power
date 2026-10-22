@@ -1,86 +1,105 @@
 <template>
-  <div class="ground">
-    <!-- Score Display -->
-    <div class="score-display">
-      <span class="score ai-score">AI: {{ aiScore }}</span>
-      <span class="target-goal">First to {{ winScore }} pts</span>
-      <span class="score human-score">You: {{ humanScore }}</span>
-    </div>
-
-    <!-- Real-time Activity Toast -->
-    <Transition name="toast-slide">
-      <div v-if="toastVisible" class="activity-toast" :class="`toast-${toastType}`">
-        <span class="toast-dot"></span>
-        <span class="toast-text">{{ toastMessage }}</span>
+  <div class="game-view-wrapper">
+    <div class="ground">
+      <!-- Score Display -->
+      <div class="score-display">
+        <span class="score ai-score">AI: {{ aiScore }}</span>
+        <span class="target-goal">First to {{ winScore }} pts</span>
+        <span class="score human-score">You: {{ humanScore }}</span>
       </div>
-    </Transition>
 
-    <!-- Action Casting Arena / Floating Indicator -->
-    <Transition name="cast-pop">
-      <div v-if="pendingActionCard" class="action-cast-arena">
-        <div class="cast-card-box">
-          <CardComp :id="-1" :card="pendingActionCard" />
+      <!-- Real-time Activity Toast -->
+      <Transition name="toast-slide">
+        <div v-if="toastVisible" class="activity-toast" :class="`toast-${toastType}`">
+          <span class="toast-dot"></span>
+          <span class="toast-text">{{ toastMessage }}</span>
         </div>
-        <div class="cast-details">
-          <div class="cast-header">
-            <span class="cast-caster-tag" :class="pendingPlayerId === 0 ? 'tag-ai' : 'tag-you'">
-              {{ pendingPlayerId === 0 ? 'AI is casting' : 'You are casting' }}
-            </span>
-            <span class="cast-card-name">{{ pendingActionCard.type }}</span>
+      </Transition>
+
+      <!-- Action Casting Arena / Floating Indicator -->
+      <Transition name="cast-pop">
+        <div v-if="pendingActionCard" class="action-cast-arena">
+          <div class="cast-card-box">
+            <CardComp :id="-1" :card="pendingActionCard" />
           </div>
-          <p class="cast-prompt">{{ actionText }}</p>
-          <button v-if="canCancelAction" class="cancel-action-btn" @click="cancelAction">
-            Cancel Action ✕
-          </button>
-        </div>
-      </div>
-    </Transition>
-
-    <div class="deck">
-      <div class="discard" :class="{ 'has-card': topDiscard }">
-        <Transition name="discard-receive">
-          <div v-if="topDiscard" :key="topDiscard.id" class="discard-card-wrapper">
-            <CardComp :id="-1" :card="topDiscard" />
-            <span class="discard-badge">{{ discardCount }}</span>
+          <div class="cast-details">
+            <div class="cast-header">
+              <span class="cast-caster-tag" :class="pendingPlayerId === 0 ? 'tag-ai' : 'tag-you'">
+                {{ pendingPlayerId === 0 ? 'AI is casting' : 'You are casting' }}
+              </span>
+              <span class="cast-card-name">{{ pendingActionCard.type }}</span>
+            </div>
+            <p class="cast-prompt">{{ actionText }}</p>
+            <button v-if="canCancelAction" class="cancel-action-btn" @click="cancelAction">
+              Cancel Action ✕
+            </button>
           </div>
-        </Transition>
-        <div v-if="!topDiscard" class="discard-placeholder">
-          <span class="discard-icon">🍂</span>
-          <span class="discard-text">Discard</span>
+        </div>
+      </Transition>
+
+      <div class="deck">
+        <div class="discard" :class="{ 'has-card': topDiscard }">
+          <Transition name="discard-receive">
+            <div v-if="topDiscard" :key="topDiscard.id" class="discard-card-wrapper">
+              <CardComp :id="-1" :card="topDiscard" />
+              <span class="discard-badge">{{ discardCount }}</span>
+            </div>
+          </Transition>
+          <div v-if="!topDiscard" class="discard-placeholder">
+            <span class="discard-icon">🍂</span>
+            <span class="discard-text">Discard</span>
+          </div>
+        </div>
+        <div
+          class="deckCard"
+          :class="{ 'deck-empty': deckCount === 0 }"
+          @click="draw"
+          :title="deckCount === 0 ? 'Deck is empty' : 'Click to draw a card'"
+        >
+          <template v-if="deckCount > 0">
+            <span class="deck-count">{{ deckCount }}</span>
+          </template>
+          <div v-else class="deck-empty-placeholder">
+            <span class="deck-empty-icon">🎴</span>
+            <span class="deck-empty-label">Empty</span>
+          </div>
+        </div>
+        <button
+          v-if="canPassTurn"
+          class="pass-turn-btn"
+          @click="passTurn"
+          title="Pass turn when deck is empty"
+        >
+          Pass Turn ⏭
+        </button>
+      </div>
+      <div>
+        <PlayerComp :class="isTurn(0)" :id="0" />
+        <PlayerComp :class="isTurn(1)" :id="1" />
+      </div>
+
+      <!-- Game Over Overlay -->
+      <div v-if="isGameOver" class="game-over-overlay">
+        <div class="game-over-modal">
+          <h2>Game Over!</h2>
+          <p class="winner" v-if="winner !== 'Nobody (Tie)'">{{ winner }} wins!</p>
+          <p class="winner" v-else>It's a Tie!</p>
+          <p class="final-score">Final: AI {{ aiScore }} - You {{ humanScore }}</p>
+          <div class="modal-actions">
+            <button class="play-again-btn" @click="restartGame">Play Again</button>
+            <button class="download-log-modal-btn" @click="downloadLog">⬇ Download Log</button>
+          </div>
         </div>
       </div>
-      <div
-        class="deckCard"
-        :class="{ 'deck-empty': deckCount === 0 }"
-        @click="draw"
-        :title="deckCount === 0 ? 'Deck is empty' : 'Click to draw a card'"
-      >
-        <template v-if="deckCount > 0">
-          <span class="deck-count">{{ deckCount }}</span>
-        </template>
-        <div v-else class="deck-empty-placeholder">
-          <span class="deck-empty-icon">🎴</span>
-          <span class="deck-empty-label">Empty</span>
-        </div>
-      </div>
-      <button
-        v-if="canPassTurn"
-        class="pass-turn-btn"
-        @click="passTurn"
-        title="Pass turn when deck is empty"
-      >
-        Pass Turn ⏭
-      </button>
-    </div>
-    <div>
-      <PlayerComp :class="isTurn(0)" :id="0" />
-      <PlayerComp :class="isTurn(1)" :id="1" />
     </div>
 
-    <!-- Game Flow Log Panel -->
-    <div class="game-log-panel">
+    <!-- Game Flow Log Panel (Dev Debug) -->
+    <div class="game-log-panel dev-log-floating-panel">
       <div class="game-log-header">
-        <span>📜 Game Flow Log ({{ logEntries.length }})</span>
+        <div class="game-log-title">
+          <span class="dev-badge">DEV LOG</span>
+          <span>📜 Game Flow ({{ logEntries.length }})</span>
+        </div>
         <div class="log-actions">
           <button class="download-log-btn" @click="downloadLog" title="Download full game log & board state">
             ⬇ Download Log
@@ -96,20 +115,6 @@
           <span class="log-msg">{{ entry.message }}</span>
         </div>
         <div v-if="logEntries.length === 0" class="log-empty">Game started. Waiting for moves...</div>
-      </div>
-    </div>
-
-    <!-- Game Over Overlay -->
-    <div v-if="isGameOver" class="game-over-overlay">
-      <div class="game-over-modal">
-        <h2>Game Over!</h2>
-        <p class="winner" v-if="winner !== 'Nobody (Tie)'">{{ winner }} wins!</p>
-        <p class="winner" v-else>It's a Tie!</p>
-        <p class="final-score">Final: AI {{ aiScore }} - You {{ humanScore }}</p>
-        <div class="modal-actions">
-          <button class="play-again-btn" @click="restartGame">Play Again</button>
-          <button class="download-log-modal-btn" @click="downloadLog">⬇ Download Log</button>
-        </div>
       </div>
     </div>
   </div>
@@ -339,18 +344,23 @@ function restartGame() {
 
 /* Activity Toast */
 .activity-toast {
+  position: absolute;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
   display: flex;
   align-items: center;
   gap: 8px;
   justify-content: center;
-  margin: 0 auto 8px auto;
   padding: 6px 14px;
   border-radius: 18px;
   font-size: 0.85em;
   font-weight: 600;
   max-width: 480px;
+  white-space: nowrap;
   text-align: center;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
   pointer-events: none;
 }
 
@@ -397,14 +407,10 @@ function restartGame() {
   transition: all 0.25s ease;
 }
 
-.toast-slide-enter-from {
-  opacity: 0;
-  transform: translateY(-8px);
-}
-
+.toast-slide-enter-from,
 .toast-slide-leave-to {
   opacity: 0;
-  transform: translateY(-8px);
+  transform: translate(-50%, -8px);
 }
 
 /* Discard Pile */
@@ -742,12 +748,44 @@ function restartGame() {
   background: #1a252f;
 }
 
+/* Outer layout wrapper */
+.game-view-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 20px;
+  margin: 10px auto;
+  width: 100%;
+  max-width: 1060px;
+  position: relative;
+}
+
+@media (max-width: 1050px) {
+  .game-view-wrapper {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+/* Floating Game Log Panel (Dev only) */
 .game-log-panel {
-  margin-top: 15px;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid #444;
-  border-radius: 8px;
-  padding: 10px 14px;
+  background: rgba(20, 24, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.dev-log-floating-panel {
+  width: 320px;
+  max-height: 85vh;
+  margin-top: 0;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 15px;
+  overflow: hidden;
+  backdrop-filter: blur(8px);
 }
 
 .game-log-header {
@@ -757,7 +795,23 @@ function restartGame() {
   font-weight: bold;
   font-size: 0.9em;
   color: #ddd;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+}
+
+.game-log-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dev-badge {
+  background: #e67e22;
+  color: white;
+  font-size: 0.65em;
+  font-weight: 800;
+  padding: 2px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
 }
 
 .log-actions {
@@ -798,7 +852,7 @@ function restartGame() {
 }
 
 .game-log-entries {
-  max-height: 120px;
+  max-height: 70vh;
   overflow-y: auto;
   font-family: monospace;
   font-size: 0.82em;
